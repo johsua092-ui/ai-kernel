@@ -17,7 +17,7 @@ function ChatMessage({ message }: { message: Message }) {
       isUser ? 'justify-end' : 'justify-start'
     }`}>
       {!isUser && (
-        <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+        <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/>
             <path d="M6 10a6 6 0 0 0 12 0"/>
@@ -29,7 +29,7 @@ function ChatMessage({ message }: { message: Message }) {
 
       <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
         isUser
-          ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-br-md shadow-lg shadow-violet-500/10'
+          ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white rounded-br-md shadow-lg shadow-blue-500/10'
           : 'bg-white/[0.03] border border-white/[0.06] text-zinc-200 rounded-bl-md'
       }`}>
         {message.content}

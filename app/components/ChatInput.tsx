@@ -44,7 +44,7 @@ export default function ChatInput({ onSend, isLoading, onStop }: ChatInputProps)
   return (
     <div className="border-t border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl">
       <form onSubmit={handleSubmit} className="max-w-3xl mx-auto p-4">
-        <div className="relative flex items-end gap-2 bg-white/[0.04] border border-white/[0.08] rounded-2xl px-4 py-3 focus-within:border-violet-500/40 transition-colors">
+        <div className="relative flex items-end gap-2 bg-white/[0.04] border border-white/[0.08] rounded-2xl px-4 py-3 focus-within:border-blue-500/40 transition-colors">
           <textarea
             ref={textareaRef}
             value={input}
@@ -61,7 +61,7 @@ export default function ChatInput({ onSend, isLoading, onStop }: ChatInputProps)
               isLoading
                 ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
                 : input.trim()
-                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/20 hover:from-violet-500 hover:to-indigo-500'
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-cyan-400'
                   : 'bg-white/[0.06] text-zinc-600 cursor-not-allowed'
             }`}
           >

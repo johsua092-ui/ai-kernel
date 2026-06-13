@@ -39,7 +39,7 @@ export default function ModelSelector({ selectedModel, onModelChange }: ModelSel
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-zinc-300 hover:bg-white/[0.08] hover:border-violet-500/30 transition-all cursor-pointer"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-zinc-300 hover:bg-white/[0.08] hover:border-blue-500/30 transition-all cursor-pointer"
       >
         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
         <span className="font-medium">{currentModel.name}</span>
@@ -70,23 +70,23 @@ export default function ModelSelector({ selectedModel, onModelChange }: ModelSel
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all cursor-pointer ${
                   model.id === selectedModel
-                    ? 'bg-violet-500/10 border border-violet-500/20'
+                    ? 'bg-blue-500/10 border border-blue-500/20'
                     : 'hover:bg-white/[0.04] border border-transparent'
                 }`}
               >
                 <div className={`w-2 h-2 rounded-full ${
-                  model.id === selectedModel ? 'bg-violet-400' : 'bg-zinc-600'
+                  model.id === selectedModel ? 'bg-blue-400' : 'bg-zinc-600'
                 }`} />
                 <div>
                   <div className={`text-sm font-medium ${
-                    model.id === selectedModel ? 'text-violet-300' : 'text-zinc-300'
+                    model.id === selectedModel ? 'text-blue-300' : 'text-zinc-300'
                   }`}>
                     {model.name}
                   </div>
                   <div className="text-[11px] text-zinc-600">{model.description}</div>
                 </div>
                 {model.id === selectedModel && (
-                  <svg className="ml-auto text-violet-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="ml-auto text-blue-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 6L9 17l-5-5" />
                   </svg>
                 )}
