@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { signInWithRedirect } from 'firebase/auth';
+import { useState, useEffect } from 'react';
+import { signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { auth, githubProvider } from '../../lib/firebase';
 
 interface LoginScreenProps {
@@ -11,6 +11,23 @@ interface LoginScreenProps {
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsLoading(true);
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          // If we successfully get a result from redirect, onAuthStateChanged in page.tsx will take over
+        }
+      })
+      .catch((err) => {
+        console.error("Redirect login error:", err);
+        setError(err.message || 'Failed to login. Please ensure your GitHub OAuth App is configured correctly.');
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
 
   const handleGithubLogin = async () => {
     setIsLoading(true);
