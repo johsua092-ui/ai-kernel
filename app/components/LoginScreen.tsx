@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { signInWithPopup } from 'firebase/auth';
+import { useState, useEffect } from 'react';
+import { signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { auth, githubProvider } from '../../lib/firebase';
 
 interface LoginScreenProps {
@@ -12,21 +12,18 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    getRedirectResult(auth).catch((err) => {
+      console.error("Redirect error", err);
+      setError(err.message || "Failed to login with GitHub.");
+    });
+  }, []);
+
   const handleGithubLogin = () => {
-    const promise = signInWithPopup(auth, githubProvider);
     setIsLoading(true);
     setError(null);
-    
-    promise.then(() => {
-      onLoginSuccess();
-    }).catch((err: any) => {
-      console.error("Login failed", err);
-      if (err.code === 'auth/account-exists-with-different-credential') {
-        setError('An account already exists with the same email address but different sign-in credentials.');
-      } else {
-        setError(err.message || 'Failed to login with GitHub. Please try again.');
-      }
-    }).finally(() => {
+    signInWithRedirect(auth, githubProvider).catch((err) => {
+      setError(err.message);
       setIsLoading(false);
     });
   };
