@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { signInWithPopup } from 'firebase/auth';
+import { useState, useEffect } from 'react';
+import { signInWithRedirect, signInWithPopup, getRedirectResult } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../../lib/firebase';
 
 interface LoginScreenProps {
@@ -11,39 +11,67 @@ interface LoginScreenProps {
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingGithub, setIsLoadingGithub] = useState(false);
+  const [checkingRedirect, setCheckingRedirect] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGoogleLogin = () => {
-    const promise = signInWithPopup(auth, googleProvider);
-    setIsLoadingGoogle(true);
-    setError(null);
+  // Check if we're returning from a redirect
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          onLoginSuccess();
+        }
+      })
+      .catch((err) => {
+        console.error("Redirect result error:", err);
+        if (err.code !== 'auth/popup-blocked') {
+          setError(err.message || "Login failed. Please try again.");
+        }
+      })
+      .finally(() => {
+        setCheckingRedirect(false);
+      });
+  }, [onLoginSuccess]);
+
+  const handleLogin = async (provider: 'google' | 'github') => {
+    const authProvider = provider === 'google' ? googleProvider : githubProvider;
+    const setLoading = provider === 'google' ? setIsLoadingGoogle : setIsLoadingGithub;
     
-    promise.then(() => {
-      onLoginSuccess();
-    }).catch((err: any) => {
-      console.error("Login failed", err);
-      setError(err.message || "Failed to login with Google.");
-      setIsLoadingGoogle(false);
-    });
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Try redirect first (works on all browsers, never blocked)
+      await signInWithRedirect(auth, authProvider);
+    } catch (redirectErr: any) {
+      console.error("Redirect failed, trying popup:", redirectErr);
+      // If redirect fails for some reason, try popup as fallback
+      try {
+        await signInWithPopup(auth, authProvider);
+        onLoginSuccess();
+      } catch (popupErr: any) {
+        console.error("Popup also failed:", popupErr);
+        if (popupErr.code === 'auth/account-exists-with-different-credential') {
+          setError('An account already exists with a different sign-in method. Try the other login option.');
+        } else {
+          setError(popupErr.message || 'Login failed. Please try again.');
+        }
+        setLoading(false);
+      }
+    }
   };
 
-  const handleGithubLogin = () => {
-    const promise = signInWithPopup(auth, githubProvider);
-    setIsLoadingGithub(true);
-    setError(null);
-    
-    promise.then(() => {
-      onLoginSuccess();
-    }).catch((err: any) => {
-      console.error("Login failed", err);
-      if (err.code === 'auth/account-exists-with-different-credential') {
-        setError('An account already exists with the same email address but different sign-in credentials.');
-      } else {
-        setError(err.message || 'Failed to login with GitHub. Please try again.');
-      }
-      setIsLoadingGithub(false);
-    });
-  };
+  // Show loading while checking redirect result
+  if (checkingRedirect) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-zinc-950">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin"></div>
+          <p className="text-sm text-zinc-400">Checking login status...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-zinc-950 px-4 animate-fadeIn">
@@ -67,7 +95,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             <circle cx="12" cy="12" r="10" strokeDasharray="4 4" opacity="0.4" />
           </svg>
         </div>
-        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-[3px] border-zinc-950 flex items-center justify-center">
+        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-green-500 border-[3px] border-zinc-950 flex items-center justify-center">
           <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
         </div>
       </div>
@@ -81,7 +109,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
       <div className="flex flex-col gap-3 w-full max-w-sm">
         <button
-          onClick={handleGoogleLogin}
+          onClick={() => handleLogin('google')}
           disabled={isLoadingGoogle || isLoadingGithub}
           className="group relative flex items-center justify-center gap-3 w-full px-4 py-3.5 rounded-xl bg-white text-zinc-950 font-semibold hover:bg-zinc-200 transition-all disabled:opacity-70 disabled:cursor-not-allowed overflow-hidden"
         >
@@ -101,7 +129,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         </button>
 
         <button
-          onClick={handleGithubLogin}
+          onClick={() => handleLogin('github')}
           disabled={isLoadingGoogle || isLoadingGithub}
           className="group relative flex items-center justify-center gap-3 w-full px-4 py-3.5 rounded-xl bg-zinc-800 text-white font-semibold hover:bg-zinc-700 transition-all disabled:opacity-70 disabled:cursor-not-allowed overflow-hidden border border-white/10"
         >
