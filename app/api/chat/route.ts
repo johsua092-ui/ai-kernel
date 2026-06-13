@@ -2,10 +2,18 @@ import { NextRequest } from 'next/server';
 
 const API_URL = 'https://panelnya.online/v1/chat/completions';
 
+const SYSTEM_PROMPT = `You are Claude, an AI assistant made by Anthropic. You are helpful, harmless, and honest. You respond thoughtfully and accurately. When asked about your identity, you identify yourself as Claude. You can assist with coding, analysis, writing, math, and general knowledge. Be direct and clear in your responses.`;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { messages, model = 'claude-opus-4-8' } = body;
+
+    // Prepend system message
+    const fullMessages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...messages,
+    ];
 
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -14,7 +22,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model,
-        messages,
+        messages: fullMessages,
         max_tokens: 4096,
         stream: true,
       }),
@@ -28,7 +36,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Stream the response
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 

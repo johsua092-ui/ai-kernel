@@ -10,6 +10,7 @@ interface SidebarProps {
   onNewChat: () => void;
   onSelectConversation: (id: string) => void;
   onDeleteConversation: (id: string) => void;
+  modelName: string;
 }
 
 export default function Sidebar({
@@ -20,6 +21,7 @@ export default function Sidebar({
   onNewChat,
   onSelectConversation,
   onDeleteConversation,
+  modelName,
 }: SidebarProps) {
   return (
     <>
@@ -117,7 +119,7 @@ export default function Sidebar({
         <div className="p-3 border-t border-white/[0.06]">
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03]">
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs text-zinc-500">claude-opus-4-8</span>
+            <span className="text-xs text-zinc-500">{modelName}</span>
           </div>
         </div>
       </aside>

@@ -18,6 +18,7 @@ export function useChat() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [model, setModel] = useState('claude-opus-4-8');
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
@@ -101,7 +102,7 @@ export function useChat() {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: apiMessages }),
+          body: JSON.stringify({ messages: apiMessages, model }),
           signal: abortController.signal,
         });
 
@@ -154,7 +155,7 @@ export function useChat() {
         abortControllerRef.current = null;
       }
     },
-    [activeConversationId, conversations, createConversation, addMessage, updateLastAssistantMessage]
+    [activeConversationId, conversations, createConversation, addMessage, updateLastAssistantMessage, model]
   );
 
   const stopGeneration = useCallback(() => {
@@ -196,6 +197,8 @@ export function useChat() {
     activeConversationId,
     activeConversation,
     isLoading,
+    model,
+    setModel,
     sendMessage,
     stopGeneration,
     newChat,
