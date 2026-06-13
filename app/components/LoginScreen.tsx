@@ -12,22 +12,23 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGithubLogin = async () => {
+  const handleGithubLogin = () => {
+    const promise = signInWithPopup(auth, githubProvider);
     setIsLoading(true);
     setError(null);
-    try {
-      await signInWithPopup(auth, githubProvider);
+    
+    promise.then(() => {
       onLoginSuccess();
-    } catch (err: any) {
+    }).catch((err: any) => {
       console.error("Login failed", err);
       if (err.code === 'auth/account-exists-with-different-credential') {
         setError('An account already exists with the same email address but different sign-in credentials.');
       } else {
         setError(err.message || 'Failed to login with GitHub. Please try again.');
       }
-    } finally {
+    }).finally(() => {
       setIsLoading(false);
-    }
+    });
   };
 
   return (
