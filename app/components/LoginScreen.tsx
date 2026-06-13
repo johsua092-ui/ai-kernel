@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import { useState } from 'react';
+import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../../lib/firebase';
 
 interface LoginScreenProps {
@@ -12,18 +12,16 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    getRedirectResult(auth).catch((err) => {
-      console.error("Redirect error", err);
-      setError(err.message || "Failed to login with Google.");
-    });
-  }, []);
-
   const handleGoogleLogin = () => {
+    const promise = signInWithPopup(auth, googleProvider);
     setIsLoading(true);
     setError(null);
-    signInWithRedirect(auth, googleProvider).catch((err) => {
-      setError(err.message);
+    
+    promise.then(() => {
+      onLoginSuccess();
+    }).catch((err: any) => {
+      console.error("Login failed", err);
+      setError(err.message || "Failed to login with Google.");
       setIsLoading(false);
     });
   };
