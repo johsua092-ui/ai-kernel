@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithRedirect } from 'firebase/auth';
 import { auth, githubProvider } from '../../lib/firebase';
 
 interface LoginScreenProps {
@@ -16,8 +16,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setIsLoading(true);
     setError(null);
     try {
-      await signInWithPopup(auth, githubProvider);
-      onLoginSuccess();
+      await signInWithRedirect(auth, githubProvider);
+      // The page will redirect to GitHub, so we don't need to call onLoginSuccess here
     } catch (err: any) {
       console.error("Login failed", err);
       if (err.code === 'auth/account-exists-with-different-credential') {
