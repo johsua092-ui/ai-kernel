@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { collection, doc, setDoc, onSnapshot, query, orderBy, serverTimestamp, Timestamp, deleteDoc } from 'firebase/firestore';
+import { db, auth } from '../../lib/firebase';
 import { Message } from '../components/ChatMessage';
 
 export interface Conversation {
@@ -8,6 +10,7 @@ export interface Conversation {
   title: string;
   messages: Message[];
   createdAt: Date;
+  updatedAt: Date;
 }
 
 function generateId() {
@@ -20,33 +23,91 @@ export function useChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [model, setModel] = useState('claude-opus-4-8');
   const abortControllerRef = useRef<AbortController | null>(null);
+  const user = auth.currentUser;
+
+  // Subscribe to conversations from Firestore
+  useEffect(() => {
+    if (!user) {
+      setConversations([]);
+      return;
+    }
+
+    const conversationsRef = collection(db, 'users', user.uid, 'conversations');
+    const q = query(conversationsRef, orderBy('updatedAt', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const convos: Conversation[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        convos.push({
+          id: docSnap.id,
+          title: data.title,
+          messages: data.messages ? JSON.parse(data.messages) : [],
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        });
+      });
+      setConversations(convos);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
   const messages = activeConversation?.messages || [];
 
-  const createConversation = useCallback((firstMessage: string): string => {
+  const createConversation = useCallback(async (firstMessage: string): Promise<string> => {
+    if (!user) throw new Error("User not authenticated");
     const id = generateId();
     const title = firstMessage.length > 40 ? firstMessage.slice(0, 40) + '...' : firstMessage;
+    
+    // Optimistic update
     const newConv: Conversation = {
       id,
       title,
       messages: [],
       createdAt: new Date(),
+      updatedAt: new Date(),
     };
     setConversations((prev) => [newConv, ...prev]);
     setActiveConversationId(id);
+
+    // Save to Firestore
+    const convRef = doc(db, 'users', user.uid, 'conversations', id);
+    await setDoc(convRef, {
+      title,
+      messages: '[]',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
     return id;
-  }, []);
+  }, [user]);
+
+  const saveMessagesToFirestore = useCallback(async (convId: string, updatedMessages: Message[]) => {
+    if (!user) return;
+    const convRef = doc(db, 'users', user.uid, 'conversations', convId);
+    await setDoc(convRef, {
+      messages: JSON.stringify(updatedMessages),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  }, [user]);
 
   const addMessage = useCallback((convId: string, message: Message) => {
     setConversations((prev) =>
-      prev.map((c) =>
-        c.id === convId ? { ...c, messages: [...c.messages, message] } : c
-      )
+      prev.map((c) => {
+        if (c.id === convId) {
+          const updatedMessages = [...c.messages, message];
+          // Fire and forget save
+          saveMessagesToFirestore(convId, updatedMessages);
+          return { ...c, messages: updatedMessages };
+        }
+        return c;
+      })
     );
-  }, []);
+  }, [saveMessagesToFirestore]);
 
-  const updateLastAssistantMessage = useCallback((convId: string, content: string) => {
+  const updateLastAssistantMessage = useCallback((convId: string, content: string, isDone: boolean = false) => {
     setConversations((prev) =>
       prev.map((c) => {
         if (c.id !== convId) return c;
@@ -55,17 +116,23 @@ export function useChat() {
         if (lastIdx >= 0 && msgs[lastIdx].role === 'assistant') {
           msgs[lastIdx] = { ...msgs[lastIdx], content };
         }
+        
+        if (isDone) {
+          // Only save to firestore when stream is done to save writes
+          saveMessagesToFirestore(convId, msgs);
+        }
+        
         return { ...c, messages: msgs };
       })
     );
-  }, []);
+  }, [saveMessagesToFirestore]);
 
   const sendMessage = useCallback(
     async (content: string) => {
       let convId = activeConversationId;
 
       if (!convId) {
-        convId = createConversation(content);
+        convId = await createConversation(content);
       }
 
       const userMessage: Message = {
@@ -91,7 +158,6 @@ export function useChat() {
       abortControllerRef.current = abortController;
 
       try {
-        // Build message history
         const currentConv = conversations.find((c) => c.id === convId);
         const history = currentConv ? currentConv.messages : [];
         const apiMessages = [
@@ -132,7 +198,7 @@ export function useChat() {
                 const json = JSON.parse(trimmed.slice(6));
                 if (json.content) {
                   accumulated += json.content;
-                  updateLastAssistantMessage(convId!, accumulated);
+                  updateLastAssistantMessage(convId!, accumulated, false);
                 }
               } catch {
                 // skip
@@ -140,14 +206,24 @@ export function useChat() {
             }
           }
         }
+        
+        // Final save to firestore when done
+        updateLastAssistantMessage(convId!, accumulated, true);
+        
       } catch (error: unknown) {
         if (error instanceof Error && error.name === 'AbortError') {
-          // User stopped generation
+          // Final save on abort
+          const currentConv = conversations.find(c => c.id === convId);
+          if (currentConv) {
+             const lastMsg = currentConv.messages[currentConv.messages.length - 1];
+             updateLastAssistantMessage(convId!, lastMsg.content, true);
+          }
         } else {
           const errorMsg = error instanceof Error ? error.message : 'Something went wrong';
           updateLastAssistantMessage(
             convId!,
-            `⚠️ Error: ${errorMsg}. Please try again.`
+            `⚠️ Error: ${errorMsg}. Please try again.`,
+            true
           );
         }
       } finally {
@@ -172,24 +248,33 @@ export function useChat() {
   }, []);
 
   const deleteConversation = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      // Optimistic delete
       setConversations((prev) => prev.filter((c) => c.id !== id));
       if (activeConversationId === id) {
         setActiveConversationId(null);
       }
+      
+      // Delete from firestore
+      if (user) {
+        await deleteDoc(doc(db, 'users', user.uid, 'conversations', id));
+      }
     },
-    [activeConversationId]
+    [activeConversationId, user]
   );
 
-  const clearChat = useCallback(() => {
-    if (activeConversationId) {
+  const clearChat = useCallback(async () => {
+    if (activeConversationId && user) {
+      // Clear from state
       setConversations((prev) =>
         prev.map((c) =>
           c.id === activeConversationId ? { ...c, messages: [] } : c
         )
       );
+      // Clear from firestore
+      await saveMessagesToFirestore(activeConversationId, []);
     }
-  }, [activeConversationId]);
+  }, [activeConversationId, user, saveMessagesToFirestore]);
 
   return {
     messages,

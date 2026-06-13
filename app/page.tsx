@@ -1,17 +1,30 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import Sidebar from './components/Sidebar';
 import ChatMessage from './components/ChatMessage';
 import ChatInput from './components/ChatInput';
 import TypingIndicator from './components/TypingIndicator';
 import WelcomeScreen from './components/WelcomeScreen';
 import ModelSelector, { MODELS } from './components/ModelSelector';
+import LoginScreen from './components/LoginScreen';
 import { useChat } from './hooks/useChat';
 
 export default function Home() {
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const {
     messages,
@@ -33,8 +46,24 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  if (authLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-zinc-950">
+        <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen onLoginSuccess={() => {}} />;
+  }
+
   const handleSuggestionClick = (prompt: string) => {
     sendMessage(prompt);
+  };
+
+  const handleSignOut = () => {
+    signOut(auth);
   };
 
   const currentModelName = MODELS.find((m) => m.id === model)?.name || model;
@@ -59,9 +88,9 @@ export default function Home() {
         modelName={currentModelName}
       />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Top Bar */}
-        <header className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl">
+        <header className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl z-10">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -77,24 +106,45 @@ export default function Home() {
             <ModelSelector selectedModel={model} onModelChange={setModel} />
           </div>
 
-          <div className="flex items-center gap-2">
-            {activeConversation && (
-              <span className="text-xs text-zinc-600 font-mono hidden sm:block truncate max-w-[200px]">
-                {activeConversation.title}
-              </span>
-            )}
-            {messages.length > 0 && (
-              <button
-                onClick={clearChat}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
-                title="Clear conversation"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-              </button>
-            )}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {activeConversation && (
+                <span className="text-xs text-zinc-600 font-mono hidden sm:block truncate max-w-[150px]">
+                  {activeConversation.title}
+                </span>
+              )}
+              {messages.length > 0 && (
+                <button
+                  onClick={clearChat}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
+                  title="Clear conversation"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            
+            <div className="h-5 w-px bg-white/[0.08]" />
+
+            <button 
+              onClick={handleSignOut}
+              className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors group cursor-pointer"
+              title="Sign out"
+            >
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="Avatar" className="w-7 h-7 rounded-full border border-white/10 group-hover:border-blue-500/50 transition-colors" />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center border border-white/10">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                </div>
+              )}
+            </button>
           </div>
         </header>
 
@@ -116,11 +166,13 @@ export default function Home() {
         </div>
 
         {/* Input */}
-        <ChatInput
-          onSend={sendMessage}
-          isLoading={isLoading}
-          onStop={stopGeneration}
-        />
+        <div className="relative z-10">
+          <ChatInput
+            onSend={sendMessage}
+            isLoading={isLoading}
+            onStop={stopGeneration}
+          />
+        </div>
       </div>
     </div>
   );
