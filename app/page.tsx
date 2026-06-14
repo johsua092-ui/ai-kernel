@@ -37,9 +37,30 @@ export default function Home() {
     quotaInfo,
   } = useChat();
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+
+  // Smart auto-scrolling
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const container = scrollContainerRef.current;
+    if (container && autoScroll) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        // Use instant scroll during generation to prevent animation interruption stutter
+        behavior: isLoading ? 'auto' : 'smooth', 
+      });
+    }
+  }, [messages, isLoading, autoScroll]);
+
+  // Track if user manually scrolls up
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    // If user is within 150px of the bottom, enable auto-scroll. Otherwise, disable it.
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
+    setAutoScroll(isAtBottom);
+  };
 
   const handleSuggestionClick = (prompt: string) => {
     sendMessage(prompt);
@@ -105,7 +126,11 @@ export default function Home() {
         </header>
 
         {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto hide-scrollbar bg-[#212121]">
+        <div 
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto hide-scrollbar bg-[#212121]"
+        >
           {showWelcome ? (
             <WelcomeScreen onSuggestionClick={handleSuggestionClick} modelName={currentModelName} />
           ) : (
