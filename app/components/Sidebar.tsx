@@ -35,8 +35,8 @@ export default function Sidebar({
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:relative top-0 left-0 h-full w-64 bg-[#171717] border-r border-zinc-800 flex flex-col z-50 transition-transform duration-300 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-0 lg:border-0 lg:overflow-hidden'
+        className={`fixed md:relative top-0 left-0 h-full w-64 bg-[#171717] border-r border-zinc-800 flex flex-col z-50 transition-transform duration-300 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         {/* Header / New Chat */}
