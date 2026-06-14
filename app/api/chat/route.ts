@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.PANEL_API_KEY || ''}`,
       },
       body: JSON.stringify({
         model,
