@@ -1,6 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth, GoogleAuthProvider, GithubAuthProvider } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,8 +12,16 @@ const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
-const githubProvider = new GithubAuthProvider();
 
-export { app, db, auth, googleProvider, githubProvider };
+// Generate or retrieve a persistent device ID for anonymous chat history
+function getDeviceId(): string {
+  if (typeof window === 'undefined') return 'server';
+  let id = localStorage.getItem('ai-kernel-device-id');
+  if (!id) {
+    id = 'device-' + Date.now().toString(36) + Math.random().toString(36).substring(2);
+    localStorage.setItem('ai-kernel-device-id', id);
+  }
+  return id;
+}
+
+export { app, db, getDeviceId };

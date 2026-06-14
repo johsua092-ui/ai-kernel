@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { collection, doc, setDoc, onSnapshot, query, orderBy, serverTimestamp, Timestamp, deleteDoc } from 'firebase/firestore';
-import { db, auth } from '../../lib/firebase';
+import { collection, doc, setDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { db, getDeviceId } from '../../lib/firebase';
 import { Message } from '../components/ChatMessage';
 
 export interface Conversation {
@@ -23,16 +23,18 @@ export function useChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [model, setModel] = useState('claude-opus-4-8');
   const abortControllerRef = useRef<AbortController | null>(null);
-  const user = auth.currentUser;
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+
+  // Get device ID on mount (client-side only)
+  useEffect(() => {
+    setDeviceId(getDeviceId());
+  }, []);
 
   // Subscribe to conversations from Firestore
   useEffect(() => {
-    if (!user) {
-      setConversations([]);
-      return;
-    }
+    if (!deviceId || deviceId === 'server') return;
 
-    const conversationsRef = collection(db, 'users', user.uid, 'conversations');
+    const conversationsRef = collection(db, 'devices', deviceId, 'conversations');
     const q = query(conversationsRef, orderBy('updatedAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -48,16 +50,18 @@ export function useChat() {
         });
       });
       setConversations(convos);
+    }, (error) => {
+      console.error('Firestore subscription error:', error);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [deviceId]);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
   const messages = activeConversation?.messages || [];
 
   const createConversation = useCallback(async (firstMessage: string): Promise<string> => {
-    if (!user) throw new Error("User not authenticated");
+    if (!deviceId) throw new Error("Device ID not ready");
     const id = generateId();
     const title = firstMessage.length > 40 ? firstMessage.slice(0, 40) + '...' : firstMessage;
     
@@ -73,7 +77,7 @@ export function useChat() {
     setActiveConversationId(id);
 
     // Save to Firestore
-    const convRef = doc(db, 'users', user.uid, 'conversations', id);
+    const convRef = doc(db, 'devices', deviceId, 'conversations', id);
     await setDoc(convRef, {
       title,
       messages: '[]',
@@ -82,16 +86,16 @@ export function useChat() {
     });
 
     return id;
-  }, [user]);
+  }, [deviceId]);
 
   const saveMessagesToFirestore = useCallback(async (convId: string, updatedMessages: Message[]) => {
-    if (!user) return;
-    const convRef = doc(db, 'users', user.uid, 'conversations', convId);
+    if (!deviceId) return;
+    const convRef = doc(db, 'devices', deviceId, 'conversations', convId);
     await setDoc(convRef, {
       messages: JSON.stringify(updatedMessages),
       updatedAt: serverTimestamp()
     }, { merge: true });
-  }, [user]);
+  }, [deviceId]);
 
   const addMessage = useCallback((convId: string, message: Message) => {
     setConversations((prev) =>
@@ -256,15 +260,15 @@ export function useChat() {
       }
       
       // Delete from firestore
-      if (user) {
-        await deleteDoc(doc(db, 'users', user.uid, 'conversations', id));
+      if (deviceId) {
+        await deleteDoc(doc(db, 'devices', deviceId, 'conversations', id));
       }
     },
-    [activeConversationId, user]
+    [activeConversationId, deviceId]
   );
 
   const clearChat = useCallback(async () => {
-    if (activeConversationId && user) {
+    if (activeConversationId && deviceId) {
       // Clear from state
       setConversations((prev) =>
         prev.map((c) =>
@@ -274,7 +278,7 @@ export function useChat() {
       // Clear from firestore
       await saveMessagesToFirestore(activeConversationId, []);
     }
-  }, [activeConversationId, user, saveMessagesToFirestore]);
+  }, [activeConversationId, deviceId, saveMessagesToFirestore]);
 
   return {
     messages,
