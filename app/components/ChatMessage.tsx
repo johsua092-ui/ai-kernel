@@ -47,7 +47,7 @@ function ChatMessage({ message }: { message: Message }) {
             <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:300ms]"></span>
           </div>
         ) : (
-          <div className={`text-sm leading-relaxed whitespace-pre-wrap break-words prose prose-invert max-w-none ${
+          <div className={`text-sm leading-relaxed break-words prose prose-invert max-w-none prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0 prose-pre:my-2 prose-pre:p-3 ${
             isUser ? 'text-zinc-200' : 'text-zinc-300'
           }`}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
