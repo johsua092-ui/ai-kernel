@@ -1,6 +1,6 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -19,8 +19,15 @@ export interface Message {
 }
 
 function ChatMessage({ message }: { message: Message }) {
+  const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
   const isEmpty = !message.content || message.content.trim() === '';
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className={`flex w-full px-4 py-4 ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -62,8 +69,28 @@ function ChatMessage({ message }: { message: Message }) {
           </div>
           
           <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm mb-1 text-zinc-300">
-              AI Kernel
+            <div className="flex items-center gap-2 mb-1">
+              <div className="font-semibold text-sm text-zinc-300">
+                AI Kernel
+              </div>
+              {!isEmpty && (
+                <button 
+                  onClick={handleCopy}
+                  className="text-zinc-500 hover:text-zinc-300 transition-colors"
+                  aria-label="Copy message"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {copied ? (
+                      <path d="M20 6L9 17l-5-5" />
+                    ) : (
+                      <>
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </>
+                    )}
+                  </svg>
+                </button>
+              )}
             </div>
             
             {/* Loading Dots */}
