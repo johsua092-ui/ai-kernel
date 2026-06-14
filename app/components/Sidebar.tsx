@@ -130,12 +130,12 @@ export default function Sidebar({
               </div>
               {quotaInfo.remaining === 0 && (
                 <div className="text-[10px] text-red-400 mt-1.5">
-                  {!user ? '🔑 Login untuk +20 kuota!' : '⏰ Reset besok pagi'}
+                  {!user ? '🔑 Sign in for +20 more!' : '⏰ Resets tomorrow'}
                 </div>
               )}
               {!user && quotaInfo.remaining > 0 && (
                 <div className="text-[10px] text-zinc-500 mt-1">
-                  🔑 Login = {30} pesan/hari
+                  🔑 Sign in = {30} msgs/day
                 </div>
               )}
             </div>
@@ -176,7 +176,7 @@ export default function Sidebar({
                 onClick={() => {
                   signInWithPopup(auth, googleProvider).catch((error: any) => {
                     if (error.code === 'auth/popup-blocked') {
-                      alert("⚠️ Pop-up masih diblokir browser. Pastikan pop-up diizinkan.");
+                      alert("⚠️ Pop-up blocked by browser. Please allow pop-ups for this site.");
                     } else {
                       alert("Google Login Error: " + error.message);
                     }
@@ -196,7 +196,7 @@ export default function Sidebar({
                 onClick={() => {
                   signInWithPopup(auth, githubProvider).catch((error: any) => {
                     if (error.code === 'auth/popup-blocked') {
-                      alert("⚠️ Pop-up masih diblokir browser. Pastikan pop-up diizinkan.");
+                      alert("⚠️ Pop-up blocked by browser. Please allow pop-ups for this site.");
                     } else {
                       alert("GitHub Login Error: " + error.message);
                     }

@@ -29,6 +29,7 @@ export function useChat() {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
+  const lastMessageTimeRef = useRef<number>(0); // Anti-spam cooldown
 
   // Get device ID on mount (client-side only)
   useEffect(() => {
@@ -38,7 +39,7 @@ export function useChat() {
     import('firebase/auth').then(({ getRedirectResult }) => {
       getRedirectResult(auth).catch((error) => {
         if (error.code !== 'auth/redirect-cancelled-by-user') {
-          alert("Gagal login dari redirect (Biasanya karena Cookie pihak ketiga diblokir Chrome): " + error.message);
+          alert("Login redirect failed (usually caused by blocked third-party cookies): " + error.message);
         }
       });
     });
@@ -171,6 +172,18 @@ export function useChat() {
     async (content: string, files?: File[]) => {
       if (!basePath) return;
 
+      // === ANTI-SPAM COOLDOWN (5 seconds) ===
+      const now = Date.now();
+      const timeSinceLast = now - lastMessageTimeRef.current;
+      const isRoot = user?.email === 'johsua092@gmail.com' || user?.email?.includes('johsua092');
+      if (!isRoot && timeSinceLast < 5000) {
+        const waitSec = Math.ceil((5000 - timeSinceLast) / 1000);
+        alert(`⏳ Slow down! Please wait ${waitSec} more second(s) before sending another message.`);
+        return;
+      }
+      lastMessageTimeRef.current = now;
+      // === END ANTI-SPAM ===
+
       // === QUOTA CHECK ===
       const uid = user?.uid || null;
       const email = user?.email || null;
@@ -180,9 +193,9 @@ export function useChat() {
       if (!allowed) {
         const isGuest = !user;
         if (isGuest) {
-          alert(`⚠️ Kuota harian kamu habis (${updatedQuota.limit} pesan/hari).\n\nLogin untuk mendapatkan kuota lebih banyak!`);
+          alert(`⚠️ Daily quota exhausted (${updatedQuota.limit} messages/day).\n\nSign in to get more quota!`);
         } else {
-          alert(`⚠️ Kuota harian kamu habis (${updatedQuota.limit} pesan/hari).\n\nKuota akan direset besok.`);
+          alert(`⚠️ Daily quota exhausted (${updatedQuota.limit} messages/day).\n\nQuota resets tomorrow.`);
         }
         return;
       }
@@ -210,7 +223,7 @@ export function useChat() {
         } catch (error) {
           console.error("Upload error", error);
           setIsLoading(false);
-          alert("Gagal upload file, pastikan Firebase Storage rules udah di-set ke public.");
+          alert("Failed to upload file. Please check your Firebase Storage rules.");
           return;
         }
       }

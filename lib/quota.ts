@@ -4,8 +4,8 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 
 // === QUOTA CONFIGURATION ===
-const GUEST_DAILY_LIMIT = 10;      // Guest (tanpa login): 10 pesan/hari
-const USER_DAILY_LIMIT = 30;       // Login (akun biasa): 30 pesan/hari
+const GUEST_DAILY_LIMIT = 10;      // Guest (no login): 10 msgs/day
+const USER_DAILY_LIMIT = 30;       // Logged-in user: 30 msgs/day
 const ROOT_EMAIL = 'johsua092@gmail.com'; // ROOT: unlimited
 
 export interface QuotaInfo {
@@ -18,6 +18,32 @@ export interface QuotaInfo {
 
 function getTodayDate(): string {
   return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
+/**
+ * Generate a simple browser fingerprint to prevent quota bypass via cookie clearing.
+ * Combines screen resolution, timezone, language, and platform.
+ */
+function getBrowserFingerprint(): string {
+  if (typeof window === 'undefined') return 'server';
+  const components = [
+    screen.width,
+    screen.height,
+    screen.colorDepth,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+    navigator.language,
+    navigator.platform,
+    navigator.hardwareConcurrency || 0,
+  ];
+  // Simple hash
+  const str = components.join('|');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0; // Convert to 32-bit integer
+  }
+  return 'fp-' + Math.abs(hash).toString(36);
 }
 
 function getQuotaDocPath(identifier: string): string {
@@ -119,10 +145,32 @@ export async function consumeQuota(
 
   const isLoggedIn = !!userId;
   const identifier = userId || deviceId || 'anonymous';
+  const fingerprint = getBrowserFingerprint();
   const limit = isLoggedIn ? USER_DAILY_LIMIT : GUEST_DAILY_LIMIT;
   const today = getTodayDate();
 
   try {
+    // For guests, also check fingerprint-based quota to prevent cookie-clearing abuse
+    if (!isLoggedIn && fingerprint !== 'server') {
+      const fpRef = doc(db, getQuotaDocPath(fingerprint));
+      const fpSnap = await getDoc(fpRef);
+      if (fpSnap.exists()) {
+        const fpData = fpSnap.data();
+        if (fpData.date === today && (fpData.count || 0) >= limit) {
+          return {
+            allowed: false,
+            quotaInfo: {
+              used: fpData.count,
+              limit,
+              remaining: 0,
+              isRoot: false,
+              resetDate: today,
+            },
+          };
+        }
+      }
+    }
+
     const quotaRef = doc(db, getQuotaDocPath(identifier));
     const quotaSnap = await getDoc(quotaRef);
 
@@ -150,7 +198,7 @@ export async function consumeQuota(
       };
     }
 
-    // Increment quota
+    // Increment quota for both device and fingerprint
     const newCount = currentCount + 1;
     await setDoc(quotaRef, {
       count: newCount,
@@ -158,6 +206,19 @@ export async function consumeQuota(
       type: isLoggedIn ? 'user' : 'guest',
       updatedAt: serverTimestamp(),
     });
+
+    // Also track fingerprint for guests
+    if (!isLoggedIn && fingerprint !== 'server') {
+      const fpRef = doc(db, getQuotaDocPath(fingerprint));
+      const fpSnap = await getDoc(fpRef);
+      const fpCount = (fpSnap.exists() && fpSnap.data().date === today) ? (fpSnap.data().count || 0) + 1 : 1;
+      await setDoc(fpRef, {
+        count: fpCount,
+        date: today,
+        type: 'fingerprint',
+        updatedAt: serverTimestamp(),
+      });
+    }
 
     return {
       allowed: true,
