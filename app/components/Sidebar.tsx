@@ -130,10 +130,12 @@ export default function Sidebar({
               <div className="text-xs text-zinc-500 mb-1">Sign in to sync history across devices</div>
               <button
                 onClick={() => {
-                  import('firebase/auth').then(({ signInWithRedirect }) => {
-                    signInWithRedirect(auth, googleProvider).catch((error: any) => {
-                      alert("Google Redirect Error: " + error.message);
-                    });
+                  signInWithPopup(auth, googleProvider).catch((error: any) => {
+                    if (error.code === 'auth/popup-blocked') {
+                      alert("⚠️ Pop-up masih diblokir browser. Pastikan pop-up diizinkan.");
+                    } else {
+                      alert("Google Login Error: " + error.message);
+                    }
                   });
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
@@ -148,10 +150,12 @@ export default function Sidebar({
               </button>
               <button
                 onClick={() => {
-                  import('firebase/auth').then(({ signInWithRedirect }) => {
-                    signInWithRedirect(auth, githubProvider).catch((error: any) => {
-                      alert("GitHub Redirect Error: " + error.message);
-                    });
+                  signInWithPopup(auth, githubProvider).catch((error: any) => {
+                    if (error.code === 'auth/popup-blocked') {
+                      alert("⚠️ Pop-up masih diblokir browser. Pastikan pop-up diizinkan.");
+                    } else {
+                      alert("GitHub Login Error: " + error.message);
+                    }
                   });
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
