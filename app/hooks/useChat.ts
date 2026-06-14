@@ -297,6 +297,7 @@ export function useChat() {
 
         const decoder = new TextDecoder();
         let accumulated = '';
+        let lastUpdateTime = Date.now();
 
         while (true) {
           const { done, value } = await reader.read();
@@ -304,6 +305,7 @@ export function useChat() {
 
           const chunk = decoder.decode(value, { stream: true });
           const lines = chunk.split('\n');
+          let hasNewContent = false;
 
           for (const line of lines) {
             const trimmed = line.trim();
@@ -313,12 +315,19 @@ export function useChat() {
                 const json = JSON.parse(trimmed.slice(6));
                 if (json.content) {
                   accumulated += json.content;
-                  updateLastAssistantMessage(convId!, accumulated, false);
+                  hasNewContent = true;
                 }
               } catch {
                 // skip
               }
             }
+          }
+
+          // Throttle UI updates to ~30 FPS (every 30ms) to prevent React Markdown stuttering
+          const now = Date.now();
+          if (hasNewContent && now - lastUpdateTime > 30) {
+            updateLastAssistantMessage(convId!, accumulated, false);
+            lastUpdateTime = now;
           }
         }
         
