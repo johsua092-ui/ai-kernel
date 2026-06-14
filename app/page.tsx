@@ -20,6 +20,7 @@ export default function Home() {
   }, []);
 
   const {
+    user,
     messages,
     conversations,
     activeConversationId,
@@ -49,6 +50,7 @@ export default function Home() {
   return (
     <div className="flex h-screen bg-[#212121] text-zinc-200 overflow-hidden">
       <Sidebar
+        user={user}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         conversations={conversations}

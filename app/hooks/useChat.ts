@@ -3,7 +3,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { collection, doc, setDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage, getDeviceId } from '../../lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { db, storage, auth, getDeviceId } from '../../lib/firebase';
 import { Message, Attachment } from '../components/ChatMessage';
 
 export interface Conversation {
@@ -25,17 +26,27 @@ export function useChat() {
   const [model, setModel] = useState('claude-opus-4-8');
   const abortControllerRef = useRef<AbortController | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   // Get device ID on mount (client-side only)
   useEffect(() => {
     setDeviceId(getDeviceId());
+    
+    // Subscribe to auth state
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
   }, []);
+
+  // Determine the base path for firestore based on auth state
+  const basePath = user ? `users/${user.uid}` : (deviceId && deviceId !== 'server' ? `devices/${deviceId}` : null);
 
   // Subscribe to conversations from Firestore
   useEffect(() => {
-    if (!deviceId || deviceId === 'server') return;
+    if (!basePath) return;
 
-    const conversationsRef = collection(db, 'devices', deviceId, 'conversations');
+    const conversationsRef = collection(db, `${basePath}/conversations`);
     const q = query(conversationsRef, orderBy('updatedAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -56,13 +67,13 @@ export function useChat() {
     });
 
     return () => unsubscribe();
-  }, [deviceId]);
+  }, [basePath]);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
   const messages = activeConversation?.messages || [];
 
   const createConversation = useCallback(async (firstMessage: string): Promise<string> => {
-    if (!deviceId) throw new Error("Device ID not ready");
+    if (!basePath) throw new Error("Base path not ready");
     const id = generateId();
     const title = firstMessage.length > 40 ? firstMessage.slice(0, 40) + '...' : firstMessage;
     
@@ -78,7 +89,7 @@ export function useChat() {
     setActiveConversationId(id);
 
     // Save to Firestore
-    const convRef = doc(db, 'devices', deviceId, 'conversations', id);
+    const convRef = doc(db, `${basePath}/conversations/${id}`);
     await setDoc(convRef, {
       title,
       messages: '[]',
@@ -87,16 +98,16 @@ export function useChat() {
     });
 
     return id;
-  }, [deviceId]);
+  }, [basePath]);
 
   const saveMessagesToFirestore = useCallback(async (convId: string, updatedMessages: Message[]) => {
-    if (!deviceId) return;
-    const convRef = doc(db, 'devices', deviceId, 'conversations', convId);
+    if (!basePath) return;
+    const convRef = doc(db, `${basePath}/conversations/${convId}`);
     await setDoc(convRef, {
       messages: JSON.stringify(updatedMessages),
       updatedAt: serverTimestamp()
     }, { merge: true });
-  }, [deviceId]);
+  }, [basePath]);
 
   const addMessage = useCallback((convId: string, message: Message) => {
     setConversations((prev) =>
@@ -134,7 +145,7 @@ export function useChat() {
 
   const sendMessage = useCallback(
     async (content: string, files?: File[]) => {
-      if (!deviceId) return;
+      if (!basePath) return;
       let convId = activeConversationId;
 
       if (!convId) {
@@ -147,7 +158,8 @@ export function useChat() {
       if (files && files.length > 0) {
         try {
           const uploadPromises = files.map(async (file) => {
-            const storageRef = ref(storage, `devices/${deviceId}/uploads/${Date.now()}_${file.name}`);
+            const storagePath = user ? `users/${user.uid}/uploads/${Date.now()}_${file.name}` : `devices/${deviceId}/uploads/${Date.now()}_${file.name}`;
+            const storageRef = ref(storage, storagePath);
             await uploadBytes(storageRef, file);
             const url = await getDownloadURL(storageRef);
             return { url, type: file.type, name: file.name };
@@ -304,15 +316,15 @@ export function useChat() {
       }
       
       // Delete from firestore
-      if (deviceId) {
-        await deleteDoc(doc(db, 'devices', deviceId, 'conversations', id));
+      if (basePath) {
+        await deleteDoc(doc(db, `${basePath}/conversations/${id}`));
       }
     },
-    [activeConversationId, deviceId]
+    [activeConversationId, basePath]
   );
 
   const clearChat = useCallback(async () => {
-    if (activeConversationId && deviceId) {
+    if (activeConversationId && basePath) {
       // Clear from state
       setConversations((prev) =>
         prev.map((c) =>
@@ -322,9 +334,10 @@ export function useChat() {
       // Clear from firestore
       await saveMessagesToFirestore(activeConversationId, []);
     }
-  }, [activeConversationId, deviceId, saveMessagesToFirestore]);
+  }, [activeConversationId, basePath, saveMessagesToFirestore]);
 
   return {
+    user,
     messages,
     conversations,
     activeConversationId,
