@@ -114,7 +114,14 @@ export default function Sidebar({
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-zinc-300 truncate">{user.displayName || 'User'}</div>
+                <div className="text-sm font-medium text-zinc-300 truncate flex items-center gap-2">
+                  {user.displayName || 'User'}
+                  {(user.email === 'johsua092@gmail.com' || user.email?.includes('johsua092')) && (
+                    <span className="inline-flex items-center rounded-md bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 border border-amber-400/20">
+                      👑 ROOT
+                    </span>
+                  )}
+                </div>
                 <button onClick={() => auth.signOut()} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Sign Out</button>
               </div>
             </div>
