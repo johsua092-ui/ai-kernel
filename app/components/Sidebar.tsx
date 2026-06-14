@@ -1,6 +1,6 @@
 'use client';
 
-import { User, signInWithPopup } from 'firebase/auth';
+import { User, signInWithRedirect } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../../lib/firebase';
 import { Conversation } from '../hooks/useChat';
 
@@ -124,7 +124,7 @@ export default function Sidebar({
               <button
                 onClick={async () => {
                   try {
-                    await signInWithPopup(auth, googleProvider);
+                    await signInWithRedirect(auth, googleProvider);
                   } catch (error: any) {
                     alert("Google Login Error: " + error.message);
                   }
@@ -142,7 +142,7 @@ export default function Sidebar({
               <button
                 onClick={async () => {
                   try {
-                    await signInWithPopup(auth, githubProvider);
+                    await signInWithRedirect(auth, githubProvider);
                   } catch (error: any) {
                     alert("GitHub Login Error: " + error.message);
                   }
