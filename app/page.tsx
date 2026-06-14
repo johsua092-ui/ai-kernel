@@ -49,7 +49,7 @@ export default function Home() {
   const showWelcome = messages.length === 0;
 
   return (
-    <div className="flex h-screen bg-[#212121] text-zinc-200 overflow-hidden">
+    <div className="flex h-[100dvh] w-full bg-[#212121] text-zinc-200 overflow-hidden">
       <Sidebar
         user={user}
         isOpen={sidebarOpen}
