@@ -2,8 +2,9 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { collection, doc, setDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc } from 'firebase/firestore';
-import { db, getDeviceId } from '../../lib/firebase';
-import { Message } from '../components/ChatMessage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage, getDeviceId } from '../../lib/firebase';
+import { Message, Attachment } from '../components/ChatMessage';
 
 export interface Conversation {
   id: string;
@@ -132,11 +133,32 @@ export function useChat() {
   }, [saveMessagesToFirestore]);
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, files?: File[]) => {
+      if (!deviceId) return;
       let convId = activeConversationId;
 
       if (!convId) {
-        convId = await createConversation(content);
+        convId = await createConversation(content || 'Attachment');
+      }
+
+      setIsLoading(true);
+
+      let uploadedAttachments: Attachment[] = [];
+      if (files && files.length > 0) {
+        try {
+          const uploadPromises = files.map(async (file) => {
+            const storageRef = ref(storage, `devices/${deviceId}/uploads/${Date.now()}_${file.name}`);
+            await uploadBytes(storageRef, file);
+            const url = await getDownloadURL(storageRef);
+            return { url, type: file.type, name: file.name };
+          });
+          uploadedAttachments = await Promise.all(uploadPromises);
+        } catch (error) {
+          console.error("Upload error", error);
+          setIsLoading(false);
+          alert("Gagal upload file, pastikan Firebase Storage rules udah di-set ke public.");
+          return;
+        }
       }
 
       const userMessage: Message = {
@@ -144,6 +166,7 @@ export function useChat() {
         role: 'user',
         content,
         timestamp: new Date(),
+        attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined
       };
 
       addMessage(convId, userMessage);
@@ -164,9 +187,30 @@ export function useChat() {
       try {
         const currentConv = conversations.find((c) => c.id === convId);
         const history = currentConv ? currentConv.messages : [];
+        
+        const historyApiMessages = history.map((m) => {
+          if (m.attachments && m.attachments.some(a => a.type.startsWith('image/'))) {
+             const imageParts = m.attachments.filter(a => a.type.startsWith('image/')).map(a => ({ type: "image_url", image_url: { url: a.url } }));
+             return {
+               role: m.role,
+               content: [
+                 { type: "text", text: m.content || "Image" },
+                 ...imageParts
+               ]
+             };
+          }
+          return { role: m.role, content: m.content };
+        });
+
+        const imageParts = uploadedAttachments.filter(a => a.type.startsWith('image/')).map(a => ({ type: "image_url", image_url: { url: a.url } }));
+        const currentUserContent = imageParts.length > 0 ? [
+           { type: "text", text: content || "Image" },
+           ...imageParts
+        ] : content;
+
         const apiMessages = [
-          ...history.map((m) => ({ role: m.role, content: m.content })),
-          { role: 'user' as const, content },
+          ...historyApiMessages,
+          { role: 'user' as const, content: currentUserContent },
         ];
 
         const response = await fetch('/api/chat', {

@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,6 +13,7 @@ const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // Generate or retrieve a persistent device ID for anonymous chat history
 function getDeviceId(): string {
@@ -24,4 +26,4 @@ function getDeviceId(): string {
   return id;
 }
 
-export { app, db, getDeviceId };
+export { app, db, storage, getDeviceId };

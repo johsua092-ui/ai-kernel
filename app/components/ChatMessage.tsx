@@ -4,11 +4,18 @@ import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+export interface Attachment {
+  url: string;
+  type: string;
+  name: string;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  attachments?: Attachment[];
 }
 
 function ChatMessage({ message }: { message: Message }) {
@@ -19,8 +26,29 @@ function ChatMessage({ message }: { message: Message }) {
     <div className={`flex w-full px-4 py-4 ${isUser ? 'justify-end' : 'justify-start'}`}>
       {isUser ? (
         // User Message Bubble (Right)
-        <div className="bg-[#2f2f2f] text-zinc-200 px-5 py-3 rounded-2xl rounded-br-sm max-w-[80%] text-sm leading-relaxed whitespace-pre-wrap break-words">
-          {message.content}
+        <div className="flex flex-col items-end gap-2 max-w-[80%]">
+          {message.attachments && message.attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 justify-end mb-1">
+              {message.attachments.map((file, i) => (
+                file.type.startsWith('image/') ? (
+                  <img key={i} src={file.url} alt={file.name} className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-zinc-700" />
+                ) : (
+                  <a key={i} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-zinc-800 px-3 py-2 rounded-lg text-sm hover:bg-zinc-700 transition-colors border border-zinc-700">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+                      <polyline points="13 2 13 9 20 9" />
+                    </svg>
+                    <span className="truncate max-w-[150px]">{file.name}</span>
+                  </a>
+                )
+              ))}
+            </div>
+          )}
+          {message.content && (
+            <div className="bg-[#2f2f2f] text-zinc-200 px-5 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap break-words">
+              {message.content}
+            </div>
+          )}
         </div>
       ) : (
         // AI Message (Left)
