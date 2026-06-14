@@ -13,6 +13,13 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Default to open on desktop
+  useEffect(() => {
+    if (window.innerWidth >= 768) {
+      setSidebarOpen(true);
+    }
+  }, []);
+
   const {
     messages,
     conversations,
@@ -49,11 +56,11 @@ export default function Home() {
         activeConversationId={activeConversationId}
         onNewChat={() => {
           newChat();
-          setSidebarOpen(false);
+          if (window.innerWidth < 768) setSidebarOpen(false);
         }}
         onSelectConversation={(id) => {
           selectConversation(id);
-          setSidebarOpen(false);
+          if (window.innerWidth < 768) setSidebarOpen(false);
         }}
         onDeleteConversation={deleteConversation}
         modelName={currentModelName}
@@ -64,11 +71,13 @@ export default function Home() {
         <header className="flex items-center justify-between px-4 py-3 bg-[#212121] z-10 sticky top-0">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setSidebarOpen(true)}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer md:hidden"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+              title="Toggle Sidebar"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12h18M3 6h18M3 18h18" />
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <line x1="9" y1="3" x2="9" y2="21" />
               </svg>
             </button>
 
