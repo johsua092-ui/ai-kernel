@@ -32,6 +32,12 @@ export function useChat() {
   useEffect(() => {
     setDeviceId(getDeviceId());
     
+    import('firebase/auth').then(({ getRedirectResult }) => {
+      getRedirectResult(auth).catch((error) => {
+        console.error("Redirect auth error:", error);
+      });
+    });
+
     // Subscribe to auth state
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);

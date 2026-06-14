@@ -1,6 +1,6 @@
 'use client';
 
-import { User, signInWithRedirect } from 'firebase/auth';
+import { User, signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../../lib/firebase';
 import { Conversation } from '../hooks/useChat';
 
@@ -124,9 +124,13 @@ export default function Sidebar({
               <button
                 onClick={async () => {
                   try {
-                    await signInWithRedirect(auth, googleProvider);
+                    await signInWithPopup(auth, googleProvider);
                   } catch (error: any) {
-                    alert("Google Login Error: " + error.message);
+                    if (error.code === 'auth/popup-blocked') {
+                      alert("⚠️ Pop-up diblokir oleh browser! Silakan cek icon pop-up blocker di ujung kanan atas URL bar (sebelah bintang), lalu pilih 'Always allow pop-ups' untuk ai-kernel.vercel.app");
+                    } else {
+                      alert("Google Login Error: " + error.message);
+                    }
                   }
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
@@ -142,9 +146,13 @@ export default function Sidebar({
               <button
                 onClick={async () => {
                   try {
-                    await signInWithRedirect(auth, githubProvider);
+                    await signInWithPopup(auth, githubProvider);
                   } catch (error: any) {
-                    alert("GitHub Login Error: " + error.message);
+                    if (error.code === 'auth/popup-blocked') {
+                      alert("⚠️ Pop-up diblokir oleh browser! Silakan cek icon pop-up blocker di ujung kanan atas URL bar (sebelah bintang), lalu pilih 'Always allow pop-ups' untuk ai-kernel.vercel.app");
+                    } else {
+                      alert("GitHub Login Error: " + error.message);
+                    }
                   }
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
