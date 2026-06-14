@@ -1,6 +1,8 @@
 'use client';
 
 import { memo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export interface Message {
   id: string;
@@ -11,6 +13,7 @@ export interface Message {
 
 function ChatMessage({ message }: { message: Message }) {
   const isUser = message.role === 'user';
+  const isEmpty = !message.content || message.content.trim() === '';
 
   return (
     <div className={`flex w-full gap-4 px-4 py-6 ${isUser ? '' : 'bg-transparent'}`}>
@@ -35,11 +38,23 @@ function ChatMessage({ message }: { message: Message }) {
         <div className="font-semibold text-sm mb-1 text-zinc-300">
           {isUser ? 'You' : 'AI Kernel'}
         </div>
-        <div className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
-          isUser ? 'text-zinc-200' : 'text-zinc-300'
-        }`}>
-          {message.content}
-        </div>
+        
+        {/* If assistant is still loading (content empty), show loading dots */}
+        {!isUser && isEmpty ? (
+          <div className="flex items-center gap-1.5 h-5 mt-2">
+            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:0ms]"></span>
+            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:150ms]"></span>
+            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:300ms]"></span>
+          </div>
+        ) : (
+          <div className={`text-sm leading-relaxed whitespace-pre-wrap break-words prose prose-invert max-w-none ${
+            isUser ? 'text-zinc-200' : 'text-zinc-300'
+          }`}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content}
+            </ReactMarkdown>
+          </div>
+        )}
       </div>
     </div>
   );

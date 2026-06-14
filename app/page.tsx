@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatMessage from './components/ChatMessage';
 import ChatInput from './components/ChatInput';
-import TypingIndicator from './components/TypingIndicator';
 import WelcomeScreen from './components/WelcomeScreen';
 import ModelSelector, { MODELS } from './components/ModelSelector';
 import { useChat } from './hooks/useChat';
@@ -110,9 +109,6 @@ export default function Home() {
               {messages.map((msg) => (
                 <ChatMessage key={msg.id} message={msg} />
               ))}
-              {isLoading && messages[messages.length - 1]?.content === '' && (
-                <TypingIndicator />
-              )}
               <div ref={messagesEndRef} className="h-4" />
             </div>
           )}
