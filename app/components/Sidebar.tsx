@@ -3,6 +3,7 @@
 import { User, signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../../lib/firebase';
 import { Conversation } from '../hooks/useChat';
+import { QuotaInfo } from '../../lib/quota';
 
 interface SidebarProps {
   user: User | null;
@@ -14,6 +15,7 @@ interface SidebarProps {
   onSelectConversation: (id: string) => void;
   onDeleteConversation: (id: string) => void;
   modelName: string;
+  quotaInfo: QuotaInfo | null;
 }
 
 export default function Sidebar({
@@ -26,6 +28,7 @@ export default function Sidebar({
   onSelectConversation,
   onDeleteConversation,
   modelName,
+  quotaInfo,
 }: SidebarProps) {
   return (
     <>
@@ -104,6 +107,47 @@ export default function Sidebar({
 
         {/* Footer */}
         <div className="p-4 border-t border-zinc-800 flex flex-col gap-3">
+          {/* Quota Display */}
+          {quotaInfo && !quotaInfo.isRoot && (
+            <div className="bg-zinc-800/50 rounded-lg px-3 py-2.5">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-medium text-zinc-400">Daily Quota</span>
+                <span className="text-[11px] font-medium text-zinc-500">
+                  {quotaInfo.remaining}/{quotaInfo.limit} left
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    quotaInfo.remaining === 0
+                      ? 'bg-red-500'
+                      : quotaInfo.remaining <= Math.ceil(quotaInfo.limit * 0.2)
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${Math.max(0, (quotaInfo.remaining / quotaInfo.limit) * 100)}%` }}
+                />
+              </div>
+              {quotaInfo.remaining === 0 && (
+                <div className="text-[10px] text-red-400 mt-1.5">
+                  {!user ? '🔑 Login untuk +20 kuota!' : '⏰ Reset besok pagi'}
+                </div>
+              )}
+              {!user && quotaInfo.remaining > 0 && (
+                <div className="text-[10px] text-zinc-500 mt-1">
+                  🔑 Login = {30} pesan/hari
+                </div>
+              )}
+            </div>
+          )}
+          {quotaInfo?.isRoot && (
+            <div className="bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-amber-400/80">♾️ Unlimited Quota</span>
+              </div>
+            </div>
+          )}
+
           {user ? (
             <div className="flex items-center gap-3">
               {user.photoURL ? (

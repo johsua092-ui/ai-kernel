@@ -6,6 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, storage, auth, getDeviceId } from '../../lib/firebase';
 import { Message, Attachment } from '../components/ChatMessage';
+import { getQuotaInfo, consumeQuota, QuotaInfo } from '../../lib/quota';
 
 export interface Conversation {
   id: string;
@@ -27,6 +28,7 @@ export function useChat() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
 
   // Get device ID on mount (client-side only)
   useEffect(() => {
@@ -47,6 +49,19 @@ export function useChat() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Refresh quota info whenever user or deviceId changes
+  const refreshQuota = useCallback(async () => {
+    const uid = user?.uid || null;
+    const email = user?.email || null;
+    const did = deviceId;
+    const info = await getQuotaInfo(uid, email, did);
+    setQuotaInfo(info);
+  }, [user, deviceId]);
+
+  useEffect(() => {
+    refreshQuota();
+  }, [refreshQuota]);
 
   // Determine the base path for firestore based on auth state
   const basePath = user ? `users/${user.uid}` : (deviceId && deviceId !== 'server' ? `devices/${deviceId}` : null);
@@ -155,6 +170,24 @@ export function useChat() {
   const sendMessage = useCallback(
     async (content: string, files?: File[]) => {
       if (!basePath) return;
+
+      // === QUOTA CHECK ===
+      const uid = user?.uid || null;
+      const email = user?.email || null;
+      const { allowed, quotaInfo: updatedQuota } = await consumeQuota(uid, email, deviceId);
+      setQuotaInfo(updatedQuota);
+
+      if (!allowed) {
+        const isGuest = !user;
+        if (isGuest) {
+          alert(`⚠️ Kuota harian kamu habis (${updatedQuota.limit} pesan/hari).\n\nLogin untuk mendapatkan kuota lebih banyak!`);
+        } else {
+          alert(`⚠️ Kuota harian kamu habis (${updatedQuota.limit} pesan/hari).\n\nKuota akan direset besok.`);
+        }
+        return;
+      }
+      // === END QUOTA CHECK ===
+
       let convId = activeConversationId;
 
       if (!convId) {
@@ -360,5 +393,6 @@ export function useChat() {
     selectConversation,
     deleteConversation,
     clearChat,
+    quotaInfo,
   };
 }
