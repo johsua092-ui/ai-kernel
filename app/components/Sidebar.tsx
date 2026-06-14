@@ -122,7 +122,13 @@ export default function Sidebar({
             <div className="flex flex-col gap-2">
               <div className="text-xs text-zinc-500 mb-1">Sign in to sync history across devices</div>
               <button
-                onClick={() => signInWithPopup(auth, googleProvider)}
+                onClick={async () => {
+                  try {
+                    await signInWithPopup(auth, googleProvider);
+                  } catch (error: any) {
+                    alert("Google Login Error: " + error.message);
+                  }
+                }}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -134,7 +140,13 @@ export default function Sidebar({
                 Continue with Google
               </button>
               <button
-                onClick={() => signInWithPopup(auth, githubProvider)}
+                onClick={async () => {
+                  try {
+                    await signInWithPopup(auth, githubProvider);
+                  } catch (error: any) {
+                    alert("GitHub Login Error: " + error.message);
+                  }
+                }}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
