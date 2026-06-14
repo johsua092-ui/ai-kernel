@@ -13,36 +13,34 @@ function ChatMessage({ message }: { message: Message }) {
   const isUser = message.role === 'user';
 
   return (
-    <div className={`flex w-full gap-3 px-4 py-5 animate-fadeIn ${
-      isUser ? 'justify-end' : 'justify-start'
-    }`}>
-      {!isUser && (
-        <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/>
-            <path d="M6 10a6 6 0 0 0 12 0"/>
-            <path d="M12 16v6"/>
-            <path d="M8 22h8"/>
-          </svg>
-        </div>
-      )}
-
-      <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
-        isUser
-          ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white rounded-br-md shadow-lg shadow-blue-500/10'
-          : 'bg-white/[0.03] border border-white/[0.06] text-zinc-200 rounded-bl-md'
-      }`}>
-        {message.content}
+    <div className={`flex w-full gap-4 px-4 py-6 ${isUser ? '' : 'bg-transparent'}`}>
+      <div className="flex-shrink-0">
+        {!isUser ? (
+          <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center shadow-sm">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-300">
+              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+            </svg>
+          </div>
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-300">
+               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+               <circle cx="12" cy="7" r="4" />
+             </svg>
+          </div>
+        )}
       </div>
 
-      {isUser && (
-        <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center border border-white/10">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.7">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-          </svg>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm mb-1 text-zinc-300">
+          {isUser ? 'You' : 'AI Kernel'}
         </div>
-      )}
+        <div className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
+          isUser ? 'text-zinc-200' : 'text-zinc-300'
+        }`}>
+          {message.content}
+        </div>
+      </div>
     </div>
   );
 }

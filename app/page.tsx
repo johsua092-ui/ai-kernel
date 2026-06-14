@@ -41,7 +41,7 @@ export default function Home() {
   const showWelcome = messages.length === 0;
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-white overflow-hidden">
+    <div className="flex h-screen bg-[#212121] text-zinc-200 overflow-hidden">
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -61,37 +61,31 @@ export default function Home() {
 
       <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Top Bar */}
-        <header className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl z-10">
+        <header className="flex items-center justify-between px-4 py-3 bg-[#212121] z-10 sticky top-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer lg:hidden"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 12h18M3 6h18M3 18h18" />
               </svg>
             </button>
 
-            <div className="h-5 w-px bg-white/[0.08]" />
-
             <ModelSelector selectedModel={model} onModelChange={setModel} />
           </div>
 
           <div className="flex items-center gap-2">
-            {activeConversation && (
-              <span className="text-xs text-zinc-600 font-mono hidden sm:block truncate max-w-[150px]">
-                {activeConversation.title}
-              </span>
-            )}
             {messages.length > 0 && (
               <button
                 onClick={clearChat}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
                 title="Clear conversation"
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" />
+                  <line x1="18" y1="9" x2="12" y2="15" />
+                  <line x1="12" y1="9" x2="18" y2="15" />
                 </svg>
               </button>
             )}
@@ -99,18 +93,18 @@ export default function Home() {
         </header>
 
         {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto hide-scrollbar">
+        <div className="flex-1 overflow-y-auto hide-scrollbar bg-[#212121]">
           {showWelcome ? (
             <WelcomeScreen onSuggestionClick={handleSuggestionClick} modelName={currentModelName} />
           ) : (
-            <div className="max-w-3xl mx-auto pb-4">
+            <div className="max-w-3xl mx-auto pb-4 pt-2">
               {messages.map((msg) => (
                 <ChatMessage key={msg.id} message={msg} />
               ))}
               {isLoading && messages[messages.length - 1]?.content === '' && (
                 <TypingIndicator />
               )}
-              <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} className="h-4" />
             </div>
           )}
         </div>

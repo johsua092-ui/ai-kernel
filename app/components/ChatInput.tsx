@@ -42,45 +42,44 @@ export default function ChatInput({ onSend, isLoading, onStop }: ChatInputProps)
   };
 
   return (
-    <div className="border-t border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl">
-      <form onSubmit={handleSubmit} className="max-w-3xl mx-auto p-4">
-        <div className="relative flex items-end gap-2 bg-white/[0.04] border border-white/[0.08] rounded-2xl px-4 py-3 focus-within:border-blue-500/40 transition-colors">
+    <div className="bg-[#212121]">
+      <div className="max-w-3xl mx-auto px-4 py-4">
+        <form onSubmit={handleSubmit} className="relative flex items-end gap-2 bg-[#2f2f2f] border border-zinc-700/50 rounded-2xl px-4 py-3 focus-within:border-zinc-500 transition-colors shadow-sm">
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type your message..."
+            placeholder="Message AI Kernel..."
             rows={1}
-            className="flex-1 bg-transparent text-sm text-white placeholder-zinc-600 resize-none outline-none max-h-[200px] leading-relaxed"
+            className="flex-1 bg-transparent text-sm text-white placeholder-zinc-400 resize-none outline-none max-h-[200px] leading-relaxed py-0.5"
           />
           <button
             type="submit"
             disabled={!isLoading && !input.trim()}
-            className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer ${
+            className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
               isLoading
-                ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                ? 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
                 : input.trim()
-                  ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-cyan-400'
-                  : 'bg-white/[0.06] text-zinc-600 cursor-not-allowed'
+                  ? 'bg-white text-black hover:bg-zinc-200'
+                  : 'bg-[#404040] text-zinc-500 cursor-not-allowed'
             }`}
           >
             {isLoading ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="6" y="6" width="12" height="12" rx="2" />
               </svg>
             ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 2L11 13" />
-                <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             )}
           </button>
-        </div>
-        <p className="text-center text-[11px] text-zinc-600 mt-2.5">
-          AI Kernel can make mistakes. Please verify important information.
+        </form>
+        <p className="text-center text-xs text-zinc-500 mt-3">
+          AI Kernel can make mistakes. Consider verifying important information.
         </p>
-      </form>
+      </div>
     </div>
   );
 }

@@ -2,19 +2,24 @@
 
 export default function TypingIndicator() {
   return (
-    <div className="flex w-full gap-3 px-4 py-5 justify-start animate-fadeIn">
-      <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/>
-          <path d="M6 10a6 6 0 0 0 12 0"/>
-          <path d="M12 16v6"/>
-          <path d="M8 22h8"/>
-        </svg>
+    <div className="flex w-full gap-4 px-4 py-6">
+      <div className="flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center shadow-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-300">
+            <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+          </svg>
+        </div>
       </div>
-      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl rounded-bl-md px-5 py-4 flex items-center gap-1.5">
-        <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]"></span>
-        <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]"></span>
-        <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:300ms]"></span>
+      
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm mb-2 text-zinc-300">
+          AI Kernel
+        </div>
+        <div className="flex items-center gap-1.5 h-5">
+          <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:0ms]"></span>
+          <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:150ms]"></span>
+          <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:300ms]"></span>
+        </div>
       </div>
     </div>
   );
