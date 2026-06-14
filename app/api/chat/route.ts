@@ -2,7 +2,12 @@ import { NextRequest } from 'next/server';
 
 const API_URL = 'https://panelnya.online/v1/chat/completions';
 
-const SYSTEM_PROMPT = `You are Claude, an AI assistant made by Anthropic. You are helpful, harmless, and honest. You respond thoughtfully and accurately. When asked about your identity, you identify yourself as Claude. You can assist with coding, analysis, writing, math, and general knowledge. Be direct and clear in your responses.`;
+function getSystemPrompt(model: string): string {
+  if (model.startsWith('gpt')) {
+    return `You are GPT, a large language model by OpenAI. You are helpful, creative, and accurate. You can assist with coding, analysis, writing, math, and general knowledge. Be direct and clear in your responses.`;
+  }
+  return `You are Claude, an AI assistant made by Anthropic. You are helpful, harmless, and honest. You respond thoughtfully and accurately. You can assist with coding, analysis, writing, math, and general knowledge. Be direct and clear in your responses.`;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +16,7 @@ export async function POST(req: NextRequest) {
 
     // Prepend system message
     const fullMessages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: getSystemPrompt(model) },
       ...messages,
     ];
 
