@@ -32,9 +32,12 @@ export function useChat() {
   useEffect(() => {
     setDeviceId(getDeviceId());
     
+    // Check for redirect errors
     import('firebase/auth').then(({ getRedirectResult }) => {
       getRedirectResult(auth).catch((error) => {
-        console.error("Redirect auth error:", error);
+        if (error.code !== 'auth/redirect-cancelled-by-user') {
+          alert("Gagal login dari redirect (Biasanya karena Cookie pihak ketiga diblokir Chrome): " + error.message);
+        }
       });
     });
 
