@@ -88,14 +88,14 @@ export function useChat() {
     setConversations((prev) => [newConv, ...prev]);
     setActiveConversationId(id);
 
-    // Save to Firestore
+    // Save to Firestore (Fire and forget)
     const convRef = doc(db, `${basePath}/conversations/${id}`);
-    await setDoc(convRef, {
+    setDoc(convRef, {
       title,
       messages: '[]',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    });
+    }).catch(console.error);
 
     return id;
   }, [basePath]);
