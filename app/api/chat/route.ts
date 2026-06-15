@@ -92,57 +92,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+    // 4. Return the response directly to the client transparently
+    // This allows the frontend's useChat.ts to handle both streaming and full JSON
+    const headers = new Headers(response.headers);
+    headers.set('Cache-Control', 'no-cache');
+    headers.set('Connection', 'keep-alive');
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = response.body?.getReader();
-        if (!reader) {
-          controller.close();
-          return;
-        }
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (trimmed === '' || trimmed === 'data: [DONE]') continue;
-              if (trimmed.startsWith('data: ')) {
-                try {
-                  const json = JSON.parse(trimmed.slice(6));
-                  const content = json.choices?.[0]?.delta?.content;
-                  if (content) {
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-                  }
-                } catch {
-                  // skip malformed JSON
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Stream error:', error);
-        } finally {
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-          controller.close();
-          reader.releaseLock();
-        }
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
+    return new Response(response.body, {
+      status: response.status,
+      headers,
     });
   } catch (error) {
     console.error('Chat API error:', error);
