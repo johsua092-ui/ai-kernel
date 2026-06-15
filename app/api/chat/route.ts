@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 
-const API_URL = 'https://panelnya.online/v1/chat/completions';
+// Ganti URL pusat ke Gateway API lu sendiri
+const API_URL = 'https://consoleapi.qzz.io/api/v1/chat/completions';
 
 // === TOKEN ABUSE PROTECTION ===
 const ROOT_EMAIL = 'johsua092@gmail.com';
