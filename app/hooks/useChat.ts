@@ -297,6 +297,7 @@ export function useChat() {
 
         const decoder = new TextDecoder();
         let accumulated = '';
+        let rawBuffer = '';
         let lastUpdateTime = Date.now();
 
         while (true) {
@@ -304,6 +305,8 @@ export function useChat() {
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
+          rawBuffer += chunk;
+          
           const lines = chunk.split('\n');
           let hasNewContent = false;
 
@@ -313,8 +316,10 @@ export function useChat() {
             if (trimmed.startsWith('data: ')) {
               try {
                 const json = JSON.parse(trimmed.slice(6));
-                if (json.content) {
-                  accumulated += json.content;
+                // Support both standard OpenAI format and custom format
+                const text = json.choices?.[0]?.delta?.content || json.content || '';
+                if (text) {
+                  accumulated += text;
                   hasNewContent = true;
                 }
               } catch {
@@ -328,6 +333,19 @@ export function useChat() {
           if (hasNewContent && now - lastUpdateTime > 30) {
             updateLastAssistantMessage(convId!, accumulated, false);
             lastUpdateTime = now;
+          }
+        }
+
+        // Fallback: If it wasn't a stream (no 'data: ' lines), try parsing the whole raw buffer as JSON
+        if (!accumulated && rawBuffer.trim().startsWith('{')) {
+          try {
+            const fullJson = JSON.parse(rawBuffer);
+            const text = fullJson.choices?.[0]?.message?.content || fullJson.content || '';
+            if (text) {
+              accumulated = text;
+            }
+          } catch (e) {
+            console.error('Failed to parse full json fallback:', e);
           }
         }
         
