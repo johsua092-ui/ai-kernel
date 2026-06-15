@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 
+export const maxDuration = 60; // Allow up to 60 seconds for Vercel Hobby
+
 // Ganti URL pusat ke Gateway API lu sendiri
 const API_URL = 'https://consoleapi.qzz.io/api/v1/chat/completions';
 
