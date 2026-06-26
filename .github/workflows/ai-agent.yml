@@ -1,0 +1,253 @@
+name: '🤖 AI Agent'
+
+on:
+  # Manual trigger with custom instructions
+  workflow_dispatch:
+    inputs:
+      instruction:
+        description: 'What should the AI agent do?'
+        required: true
+        type: string
+      branch:
+        description: 'Target branch (default: ai-agent-patch)'
+        required: false
+        default: 'ai-agent-patch'
+        type: string
+      create_pr:
+        description: 'Create a Pull Request?'
+        required: false
+        default: true
+        type: boolean
+
+  # Trigger on issue comments with /ai command
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: ai-agent-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Handle Issue Comment Trigger ──────────────────────────────
+  parse-comment:
+    name: '📝 Parse Command'
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'issue_comment' &&
+      startsWith(github.event.comment.body, '/ai ')
+    outputs:
+      instruction: ${{ steps.parse.outputs.instruction }}
+      should_run: ${{ steps.parse.outputs.should_run }}
+    steps:
+      - name: Parse /ai command
+        id: parse
+        run: |
+          COMMENT="${{ github.event.comment.body }}"
+          INSTRUCTION="${COMMENT#/ai }"
+          echo "instruction=${INSTRUCTION}" >> $GITHUB_OUTPUT
+          echo "should_run=true" >> $GITHUB_OUTPUT
+
+      - name: React to comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            });
+
+  # ── AI Agent Execution ────────────────────────────────────────
+  agent:
+    name: '🧠 Execute AI Task'
+    runs-on: ubuntu-latest
+    needs: [parse-comment]
+    if: >
+      always() && (
+        (github.event_name == 'workflow_dispatch') ||
+        (needs.parse-comment.outputs.should_run == 'true')
+      )
+    timeout-minutes: 15
+
+    steps:
+      - name: '📦 Checkout Repository'
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: '🟢 Setup Node.js'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: '📥 Install Dependencies'
+        run: npm ci
+
+      - name: '🤖 Determine Instruction'
+        id: instruction
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "text=${{ github.event.inputs.instruction }}" >> $GITHUB_OUTPUT
+            echo "branch=${{ github.event.inputs.branch }}" >> $GITHUB_OUTPUT
+            echo "create_pr=${{ github.event.inputs.create_pr }}" >> $GITHUB_OUTPUT
+          else
+            echo "text=${{ needs.parse-comment.outputs.instruction }}" >> $GITHUB_OUTPUT
+            echo "branch=ai-agent/issue-${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+            echo "create_pr=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: '🧠 Run AI Agent'
+        env:
+          PANEL_API_KEY: ${{ secrets.PANEL_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_INSTRUCTION: ${{ steps.instruction.outputs.text }}
+        run: |
+          echo "🤖 AI Agent executing: ${AI_INSTRUCTION}"
+          
+          # Call the AI to generate a plan
+          RESPONSE=$(curl -s -X POST https://consoleapi.qzz.io/api/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${PANEL_API_KEY}" \
+            -d "{
+              \"model\": \"claude-opus-4-8\",
+              \"messages\": [
+                {
+                  \"role\": \"system\",
+                  \"content\": \"You are an AI coding agent for the ai-kernel project. You receive instructions and output ONLY a JSON array of file operations. Each operation has: {\\\"action\\\": \\\"create\\\" | \\\"modify\\\" | \\\"delete\\\", \\\"path\\\": \\\"relative/file/path\\\", \\\"content\\\": \\\"file content\\\"}. Output ONLY valid JSON, no markdown, no explanation. The project is a Next.js 16 app with TypeScript, Tailwind CSS v4, Firebase, and React 19.\"
+                },
+                {
+                  \"role\": \"user\",
+                  \"content\": \"${AI_INSTRUCTION}\"
+                }
+              ],
+              \"max_tokens\": 8192
+            }")
+          
+          echo "📋 AI Response received"
+          
+          # Extract the content from the response
+          CONTENT=$(echo "$RESPONSE" | node -e "
+            const data = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+            const content = data.choices?.[0]?.message?.content || '';
+            process.stdout.write(content);
+          ")
+          
+          # Try to parse and apply file operations
+          echo "$CONTENT" | node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const input = require('fs').readFileSync('/dev/stdin','utf8');
+            
+            // Extract JSON from possible markdown code blocks
+            let jsonStr = input;
+            const codeBlockMatch = input.match(/\\\`\\\`\\\`(?:json)?\\n([\\s\\S]*?)\\n\\\`\\\`\\\`/);
+            if (codeBlockMatch) jsonStr = codeBlockMatch[1];
+            
+            try {
+              const ops = JSON.parse(jsonStr.trim());
+              if (!Array.isArray(ops)) throw new Error('Not an array');
+              
+              let applied = 0;
+              for (const op of ops) {
+                const filePath = path.resolve(op.path);
+                
+                if (op.action === 'create' || op.action === 'modify') {
+                  const dir = path.dirname(filePath);
+                  fs.mkdirSync(dir, { recursive: true });
+                  fs.writeFileSync(filePath, op.content, 'utf8');
+                  console.log('✅ ' + op.action + ': ' + op.path);
+                  applied++;
+                } else if (op.action === 'delete') {
+                  if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    console.log('🗑️ delete: ' + op.path);
+                    applied++;
+                  }
+                }
+              }
+              console.log('\\n📊 Applied ' + applied + ' operations');
+            } catch (e) {
+              console.log('⚠️ Could not parse AI response as operations. Raw output:');
+              console.log(input.substring(0, 2000));
+              process.exit(1);
+            }
+          "
+
+      - name: '📝 Configure Git'
+        run: |
+          git config user.name "AI Kernel Agent"
+          git config user.email "ai-agent@ai-kernel.dev"
+
+      - name: '🌿 Create Branch & Commit'
+        id: commit
+        run: |
+          BRANCH="${{ steps.instruction.outputs.branch }}"
+          
+          # Check if there are changes
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes to commit"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Create branch and commit
+          git checkout -b "$BRANCH" 2>/dev/null || git checkout "$BRANCH"
+          git add -A
+          git commit -m "🤖 AI Agent: ${{ steps.instruction.outputs.text }}" \
+            -m "Automated changes by AI Kernel Agent" \
+            -m "Triggered by: ${{ github.actor }}" \
+            -m "Event: ${{ github.event_name }}"
+          
+          git push origin "$BRANCH" --force
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+      - name: '🔄 Create Pull Request'
+        if: steps.commit.outputs.has_changes == 'true' && steps.instruction.outputs.create_pr == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = '${{ steps.commit.outputs.branch }}';
+            const instruction = `${{ steps.instruction.outputs.text }}`;
+            
+            // Check if PR already exists
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${branch}`,
+              state: 'open'
+            });
+            
+            if (prs.length === 0) {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🤖 AI Agent: ${instruction.substring(0, 60)}`,
+                body: `## 🤖 AI Agent Changes\n\n**Instruction:** ${instruction}\n\n**Triggered by:** @${context.actor}\n**Event:** \`${context.eventName}\`\n\n---\n_This PR was automatically created by the AI Kernel Agent._`,
+                head: branch,
+                base: 'main'
+              });
+              console.log(`Created PR #${pr.number}`);
+            } else {
+              console.log(`PR already exists: #${prs[0].number}`);
+            }
+
+      - name: '💬 Comment on Issue'
+        if: github.event_name == 'issue_comment' && steps.commit.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: `✅ **AI Agent completed!**\n\nBranch: \`${{ steps.commit.outputs.branch }}\`\nPR has been created with the changes.\n\n_Instruction: ${{ steps.instruction.outputs.text }}_`
+            });
