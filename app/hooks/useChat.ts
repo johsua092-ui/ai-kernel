@@ -25,6 +25,7 @@ export function useChat() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [model, setModel] = useState('claude-opus-4-8');
+  const [isAgentMode, setIsAgentMode] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -168,6 +169,29 @@ export function useChat() {
     );
   }, [saveMessagesToFirestore]);
 
+  const updateLastAssistantMessageObject = useCallback((
+    convId: string, 
+    updates: Partial<Message>, 
+    isDone: boolean = false
+  ) => {
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id !== convId) return c;
+        const msgs = [...c.messages];
+        const lastIdx = msgs.length - 1;
+        if (lastIdx >= 0 && msgs[lastIdx].role === 'assistant') {
+          msgs[lastIdx] = { ...msgs[lastIdx], ...updates };
+        }
+        
+        if (isDone) {
+          saveMessagesToFirestore(convId, msgs);
+        }
+        
+        return { ...c, messages: msgs };
+      })
+    );
+  }, [saveMessagesToFirestore]);
+
   const sendMessage = useCallback(
     async (content: string, files?: File[]) => {
       if (!basePath) return;
@@ -183,6 +207,12 @@ export function useChat() {
       }
       lastMessageTimeRef.current = now;
       // === END ANTI-SPAM ===
+
+      // === AUTHORIZATION CHECK FOR AGENT MODE ===
+      if (isAgentMode && !isRoot) {
+        alert("⚠️ Unauthorized: Only the repository owner can run the AI Agent in push mode.");
+        return;
+      }
 
       // === QUOTA CHECK ===
       const uid = user?.uid || null;
@@ -204,13 +234,13 @@ export function useChat() {
       let convId = activeConversationId;
 
       if (!convId) {
-        convId = await createConversation(content || 'Attachment');
+        convId = await createConversation(content || (isAgentMode ? 'AI Agent Instruction' : 'Attachment'));
       }
 
       setIsLoading(true);
 
       let uploadedAttachments: Attachment[] = [];
-      if (files && files.length > 0) {
+      if (files && files.length > 0 && !isAgentMode) {
         try {
           const uploadPromises = files.map(async (file) => {
             const storagePath = user ? `users/${user.uid}/uploads/${Date.now()}_${file.name}` : `devices/${deviceId}/uploads/${Date.now()}_${file.name}`;
@@ -238,142 +268,295 @@ export function useChat() {
 
       addMessage(convId, userMessage);
 
-      const assistantMessage: Message = {
-        id: generateId(),
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-      };
+      // Create Assistant Message
+      if (isAgentMode) {
+        const assistantMessage: Message = {
+          id: generateId(),
+          role: 'assistant',
+          content: 'Initializing AI Agent...',
+          timestamp: new Date(),
+          isAgent: true,
+          agentSteps: [
+            { id: 'init', name: 'Initializing Agent', status: 'running', message: 'Setting up agent environment...' },
+            { id: 'auth', name: 'Verifying Permissions', status: 'pending' },
+            { id: 'repo_read', name: 'Reading Repository Structure', status: 'pending' },
+            { id: 'generating', name: 'Planning & Generating Code', status: 'pending' },
+            { id: 'push', name: 'Pushing to GitHub', status: 'pending' }
+          ],
+          agentOps: [],
+          agentBranch: 'main'
+        };
 
-      addMessage(convId, assistantMessage);
-      setIsLoading(true);
+        addMessage(convId, assistantMessage);
+        setIsLoading(true);
 
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
+        const abortController = new AbortController();
+        abortControllerRef.current = abortController;
 
-      try {
-        const currentConv = conversations.find((c) => c.id === convId);
-        const history = currentConv ? currentConv.messages : [];
-        
-        const historyApiMessages = history.map((m) => {
-          if (m.attachments && m.attachments.some(a => a.type.startsWith('image/'))) {
-             const imageParts = m.attachments.filter(a => a.type.startsWith('image/')).map(a => ({ type: "image_url", image_url: { url: a.url } }));
-             return {
-               role: m.role,
-               content: [
-                 { type: "text", text: m.content || "Image" },
-                 ...imageParts
-               ]
-             };
+        try {
+          const response = await fetch('/api/agent/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              instruction: content,
+              userEmail: user?.email || null,
+              autoPush: true,
+              branch: 'main',
+              stream: true
+            }),
+            signal: abortController.signal,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP ${response.status}`);
           }
-          return { role: m.role, content: m.content };
-        });
 
-        const imageParts = uploadedAttachments.filter(a => a.type.startsWith('image/')).map(a => ({ type: "image_url", image_url: { url: a.url } }));
-        const currentUserContent = imageParts.length > 0 ? [
-           { type: "text", text: content || "Image" },
-           ...imageParts
-        ] : content;
+          const reader = response.body?.getReader();
+          if (!reader) throw new Error('No response stream');
 
-        const apiMessages = [
-          ...historyApiMessages,
-          { role: 'user' as const, content: currentUserContent },
-        ];
+          const decoder = new TextDecoder();
+          let rawBuffer = '';
 
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: apiMessages, model, userEmail: user?.email || null }),
-          signal: abortController.signal,
-        });
+          let steps = [
+            { id: 'init', name: 'Initializing Agent', status: 'running', message: 'Setting up agent environment...' },
+            { id: 'auth', name: 'Verifying Permissions', status: 'pending' },
+            { id: 'repo_read', name: 'Reading Repository Structure', status: 'pending' },
+            { id: 'generating', name: 'Planning & Generating Code', status: 'pending' },
+            { id: 'push', name: 'Pushing to GitHub', status: 'pending' }
+          ] as any[];
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `HTTP ${response.status}`);
-        }
+          let ops = [] as any[];
+          let branch = 'main';
+          let contentAccumulated = 'Starting agent...';
+          let agentError = '';
 
-        const reader = response.body?.getReader();
-        if (!reader) throw new Error('No response stream');
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-        const decoder = new TextDecoder();
-        let accumulated = '';
-        let rawBuffer = '';
-        let lastUpdateTime = Date.now();
+            const chunk = decoder.decode(value, { stream: true });
+            rawBuffer += chunk;
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+            const lines = rawBuffer.split('\n\n');
+            rawBuffer = lines.pop() || ''; // Keep the last incomplete line
 
-          const chunk = decoder.decode(value, { stream: true });
-          rawBuffer += chunk;
-          
-          const lines = chunk.split('\n');
-          let hasNewContent = false;
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (trimmed === '' || trimmed === 'data: [DONE]') continue;
-            if (trimmed.startsWith('data: ')) {
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith('data: ')) continue;
+              
               try {
-                const json = JSON.parse(trimmed.slice(6));
-                // Support both standard OpenAI format and custom format
-                const text = json.choices?.[0]?.delta?.content || json.content || '';
-                if (text) {
-                  accumulated += text;
-                  hasNewContent = true;
+                const event = JSON.parse(trimmed.slice(6));
+                
+                if (event.step === 'init') {
+                  steps = steps.map(s => s.id === 'init' ? { ...s, status: event.status, message: event.message } : s);
+                  if (event.status === 'success') {
+                    steps = steps.map(s => s.id === 'auth' ? { ...s, status: 'running', message: 'Checking authorization...' } : s);
+                  }
+                } else if (event.step === 'auth') {
+                  steps = steps.map(s => s.id === 'auth' ? { ...s, status: event.status, message: event.message } : s);
+                } else if (event.step === 'repo_read') {
+                  steps = steps.map(s => s.id === 'repo_read' ? { ...s, status: event.status, message: event.message } : s);
+                  if (event.status === 'running') {
+                    steps = steps.map(s => s.id === 'auth' ? { ...s, status: 'success', message: 'Authorized.' } : s);
+                  }
+                } else if (event.step === 'generating') {
+                  steps = steps.map(s => s.id === 'generating' ? { ...s, status: event.status, message: event.message } : s);
+                  steps = steps.map(s => s.id === 'repo_read' ? { ...s, status: 'success' } : s);
+                } else if (event.step === 'parsing') {
+                  steps = steps.map(s => s.id === 'generating' ? { ...s, message: event.message } : s);
+                } else if (event.step === 'parsed') {
+                  steps = steps.map(s => s.id === 'generating' ? { ...s, status: event.status, message: event.message } : s);
+                  if (event.operations) {
+                    ops = event.operations.map((o: any) => ({ ...o, status: 'pending' }));
+                  }
+                } else if (event.step === 'pushing_start') {
+                  steps = steps.map(s => s.id === 'push' ? { ...s, status: event.status, message: event.message } : s);
+                } else if (event.step === 'pushing_file') {
+                  ops = ops.map(o => o.path === event.path ? { ...o, status: 'running' } : o);
+                  steps = steps.map(s => s.id === 'push' ? { ...s, message: event.message } : s);
+                } else if (event.step === 'pushed_file') {
+                  ops = ops.map(o => o.path === event.path ? { ...o, status: event.status } : o);
+                  steps = steps.map(s => s.id === 'push' ? { ...s, message: event.message } : s);
+                } else if (event.step === 'complete') {
+                  steps = steps.map(s => s.id === 'push' ? { ...s, status: event.status, message: event.message } : s);
+                  branch = event.branch || 'main';
+                  contentAccumulated = `### 🤖 AI Agent Execution Successful!\n\nAll proposed file operations have been successfully pushed to the repository branch **${branch}**.\n\n#### Operations Summary:\n` +
+                    ops.map((o: any) => `- **${o.action.toUpperCase()}** \`${o.path}\`: ${o.reason || 'No reason provided.'}`).join('\n');
+                } else if (event.step === 'error') {
+                  agentError = event.message;
+                  steps = steps.map(s => s.status === 'running' || s.status === 'pending' ? { ...s, status: 'error', message: event.message } : s);
+                  contentAccumulated = `❌ **AI Agent Execution Failed**\n\nError details: ${event.message}`;
+                } else if (event.step === 'log') {
+                  steps = steps.map(s => s.status === 'running' ? { ...s, message: event.message } : s);
                 }
-              } catch {
-                // skip
+
+                updateLastAssistantMessageObject(convId!, {
+                  content: contentAccumulated,
+                  agentSteps: [...steps],
+                  agentOps: [...ops],
+                  agentBranch: branch,
+                  agentError: agentError || undefined
+                }, false);
+
+              } catch (err) {
+                console.error('Failed to parse SSE event:', err, trimmed);
               }
             }
           }
 
-          // Throttle UI updates to ~30 FPS (every 30ms) to prevent React Markdown stuttering
-          const now = Date.now();
-          if (hasNewContent && now - lastUpdateTime > 30) {
-            updateLastAssistantMessage(convId!, accumulated, false);
-            lastUpdateTime = now;
-          }
+          // Final save
+          updateLastAssistantMessageObject(convId!, {
+            isAgent: true,
+            agentSteps: [...steps],
+            agentOps: [...ops],
+            agentBranch: branch,
+            agentError: agentError || undefined
+          }, true);
+
+        } catch (error: any) {
+          console.error('Agent execution error:', error);
+          updateLastAssistantMessageObject(convId!, {
+            content: `❌ **Agent Execution Failed**\n\n${error.message || error}`,
+            agentError: error.message || String(error)
+          }, true);
+        } finally {
+          setIsLoading(false);
+          abortControllerRef.current = null;
         }
 
-        // Fallback: If it wasn't a stream (no 'data: ' lines), try parsing the whole raw buffer as JSON
-        if (!accumulated && rawBuffer.trim().startsWith('{')) {
-          try {
-            const fullJson = JSON.parse(rawBuffer);
-            const text = fullJson.choices?.[0]?.message?.content || fullJson.content || '';
-            if (text) {
-              accumulated = text;
+      } else {
+        // --- STANDARD CHAT MODE ---
+        const assistantMessage: Message = {
+          id: generateId(),
+          role: 'assistant',
+          content: '',
+          timestamp: new Date(),
+        };
+
+        addMessage(convId, assistantMessage);
+        setIsLoading(true);
+
+        const abortController = new AbortController();
+        abortControllerRef.current = abortController;
+
+        try {
+          const currentConv = conversations.find((c) => c.id === convId);
+          const history = currentConv ? currentConv.messages : [];
+          
+          const historyApiMessages = history.map((m) => {
+            if (m.attachments && m.attachments.some(a => a.type.startsWith('image/'))) {
+               const imageParts = m.attachments.filter(a => a.type.startsWith('image/')).map(a => ({ type: "image_url", image_url: { url: a.url } }));
+               return {
+                 role: m.role,
+                 content: [
+                   { type: "text", text: m.content || "Image" },
+                   ...imageParts
+                 ]
+               };
             }
-          } catch (e) {
-            console.error('Failed to parse full json fallback:', e);
+            return { role: m.role, content: m.content };
+          });
+
+          const imageParts = uploadedAttachments.filter(a => a.type.startsWith('image/')).map(a => ({ type: "image_url", image_url: { url: a.url } }));
+          const currentUserContent = imageParts.length > 0 ? [
+             { type: "text", text: content || "Image" },
+             ...imageParts
+          ] : content;
+
+          const apiMessages = [
+            ...historyApiMessages,
+            { role: 'user' as const, content: currentUserContent },
+          ];
+
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: apiMessages, model, userEmail: user?.email || null }),
+            signal: abortController.signal,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP ${response.status}`);
           }
-        }
-        
-        // Final save to firestore when done
-        updateLastAssistantMessage(convId!, accumulated, true);
-        
-      } catch (error: unknown) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          // Final save on abort
-          const currentConv = conversations.find(c => c.id === convId);
-          if (currentConv) {
-             const lastMsg = currentConv.messages[currentConv.messages.length - 1];
-             updateLastAssistantMessage(convId!, lastMsg.content, true);
+
+          const reader = response.body?.getReader();
+          if (!reader) throw new Error('No response stream');
+
+          const decoder = new TextDecoder();
+          let accumulated = '';
+          let rawBuffer = '';
+          let lastUpdateTime = Date.now();
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            rawBuffer += chunk;
+            
+            const lines = chunk.split('\n');
+            let hasNewContent = false;
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed === '' || trimmed === 'data: [DONE]') continue;
+              if (trimmed.startsWith('data: ')) {
+                try {
+                  const json = JSON.parse(trimmed.slice(6));
+                  const text = json.choices?.[0]?.delta?.content || json.content || '';
+                  if (text) {
+                    accumulated += text;
+                    hasNewContent = true;
+                  }
+                } catch {
+                  // skip
+                }
+              }
+            }
+
+            const now = Date.now();
+            if (hasNewContent && now - lastUpdateTime > 30) {
+              updateLastAssistantMessage(convId!, accumulated, false);
+              lastUpdateTime = now;
+            }
           }
-        } else {
-          const errorMsg = error instanceof Error ? error.message : 'Something went wrong';
-          updateLastAssistantMessage(
-            convId!,
-            `⚠️ Error: ${errorMsg}. Please try again.`,
-            true
-          );
+
+          if (!accumulated && rawBuffer.trim().startsWith('{')) {
+            try {
+              const fullJson = JSON.parse(rawBuffer);
+              const text = fullJson.choices?.[0]?.message?.content || fullJson.content || '';
+              if (text) accumulated = text;
+            } catch (e) {
+              console.error('Failed to parse full json fallback:', e);
+            }
+          }
+          
+          updateLastAssistantMessage(convId!, accumulated, true);
+          
+        } catch (error: unknown) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            const currentConv = conversations.find(c => c.id === convId);
+            if (currentConv) {
+               const lastMsg = currentConv.messages[currentConv.messages.length - 1];
+               updateLastAssistantMessage(convId!, lastMsg.content, true);
+            }
+          } else {
+            const errorMsg = error instanceof Error ? error.message : 'Something went wrong';
+            updateLastAssistantMessage(
+              convId!,
+              `⚠️ Error: ${errorMsg}. Please try again.`,
+              true
+            );
+          }
+        } finally {
+          setIsLoading(false);
+          abortControllerRef.current = null;
         }
-      } finally {
-        setIsLoading(false);
-        abortControllerRef.current = null;
       }
     },
-    [activeConversationId, conversations, createConversation, addMessage, updateLastAssistantMessage, model]
+    [activeConversationId, conversations, createConversation, addMessage, updateLastAssistantMessage, updateLastAssistantMessageObject, model, isAgentMode, user, deviceId]
   );
 
   const stopGeneration = useCallback(() => {
@@ -427,6 +610,8 @@ export function useChat() {
     isLoading,
     model,
     setModel,
+    isAgentMode,
+    setIsAgentMode,
     sendMessage,
     stopGeneration,
     newChat,

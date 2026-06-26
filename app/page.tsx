@@ -28,6 +28,8 @@ export default function Home() {
     isLoading,
     model,
     setModel,
+    isAgentMode,
+    setIsAgentMode,
     sendMessage,
     stopGeneration,
     newChat,
@@ -106,6 +108,24 @@ export default function Home() {
             </button>
 
             <ModelSelector selectedModel={model} onModelChange={setModel} />
+
+            <div className="h-4 w-px bg-zinc-850" />
+            
+            <button
+              onClick={() => setIsAgentMode(!isAgentMode)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all duration-300 cursor-pointer border ${
+                isAgentMode
+                  ? 'bg-purple-950/40 border-purple-500/50 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.2)] hover:bg-purple-900/40'
+                  : 'bg-zinc-900/30 border-zinc-800 text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800/50'
+              }`}
+              title="Toggle AI Agent mode (Autonomous GitHub Push)"
+            >
+              <span className={`w-2 h-2 rounded-full ${isAgentMode ? 'bg-purple-400 animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'bg-zinc-600'}`} />
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isAgentMode ? 'text-purple-400' : 'text-zinc-400'}>
+                <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+              </svg>
+              <span className="font-semibold text-xs sm:text-sm">Agent Mode</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -149,6 +169,7 @@ export default function Home() {
             onSend={sendMessage}
             isLoading={isLoading}
             onStop={stopGeneration}
+            isAgentMode={isAgentMode}
           />
         </div>
       </div>

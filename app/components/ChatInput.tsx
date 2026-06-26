@@ -6,9 +6,10 @@ interface ChatInputProps {
   onSend: (message: string, files: File[]) => void;
   isLoading: boolean;
   onStop: () => void;
+  isAgentMode?: boolean;
 }
 
-export default function ChatInput({ onSend, isLoading, onStop }: ChatInputProps) {
+export default function ChatInput({ onSend, isLoading, onStop, isAgentMode }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -120,7 +121,7 @@ export default function ChatInput({ onSend, isLoading, onStop }: ChatInputProps)
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Message AI Kernel..."
+              placeholder={isAgentMode ? "Ask AI Agent to build & push (e.g., 'Add a footer to page')..." : "Message AI Kernel..."}
               rows={1}
               className="flex-1 bg-transparent text-sm text-white placeholder-zinc-400 resize-none outline-none max-h-[200px] leading-relaxed py-1.5"
             />
