@@ -25,16 +25,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { operations, branch = 'main', commitMessage, userEmail } = body;
 
-    // Auth check: Only root user can push
-    const isRoot = userEmail === 'johsua092@gmail.com' || 
-                   (userEmail && userEmail.includes('johsua092'));
-    
-    if (!isRoot) {
-      return NextResponse.json(
-        { error: 'Unauthorized: Only the repo owner can use the AI agent.' },
-        { status: 403 }
-      );
-    }
 
     const githubToken = process.env.GITHUB_PAT;
     if (!githubToken) {

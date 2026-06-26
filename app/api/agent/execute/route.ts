@@ -19,16 +19,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { instruction, userEmail, autoPush = true, branch = 'main', stream = false } = body;
 
-    // Auth check
-    const isRoot = userEmail === 'johsua092@gmail.com' || 
-                   (userEmail && userEmail.includes('johsua092'));
-    
-    if (!isRoot) {
-      return NextResponse.json(
-        { error: 'Unauthorized: Only the repo owner can use the AI agent.' },
-        { status: 403 }
-      );
-    }
 
     if (!instruction) {
       return NextResponse.json(

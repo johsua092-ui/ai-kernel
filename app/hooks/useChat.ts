@@ -208,12 +208,6 @@ export function useChat() {
       lastMessageTimeRef.current = now;
       // === END ANTI-SPAM ===
 
-      // === AUTHORIZATION CHECK FOR AGENT MODE ===
-      if (isAgentMode && !isRoot) {
-        alert("⚠️ Unauthorized: Only the repository owner can run the AI Agent in push mode.");
-        return;
-      }
-
       // === QUOTA CHECK ===
       const uid = user?.uid || null;
       const email = user?.email || null;
