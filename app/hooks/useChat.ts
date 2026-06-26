@@ -35,15 +35,6 @@ export function useChat() {
   // Get device ID on mount (client-side only)
   useEffect(() => {
     setDeviceId(getDeviceId());
-    
-    // Check for redirect errors
-    import('firebase/auth').then(({ getRedirectResult }) => {
-      getRedirectResult(auth).catch((error) => {
-        if (error.code !== 'auth/redirect-cancelled-by-user') {
-          alert("Login redirect failed (usually caused by blocked third-party cookies): " + error.message);
-        }
-      });
-    });
 
     // Subscribe to auth state
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
