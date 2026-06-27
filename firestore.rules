@@ -6,46 +6,39 @@ service cloud.firestore {
     // ==========================================
     // 1. ATURAN BUAT RIWAYAT CHAT (History)
     // ==========================================
-    
-    // User yang login cuma bisa baca & nulis chat mereka sendiri
+
+    // User yang login cuma bisa akses data miliknya sendiri
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // Guest (tanpa login) cuma bisa baca & nulis chat di device mereka sendiri
+
+    // Guest (tanpa login): chat per device
     match /devices/{deviceId}/{document=**} {
-      allow read, write: if true; // Diizinkan untuk guest, karena mereka ga punya akun auth
+      allow read, write: if true;
     }
 
     // ==========================================
-    // 2. ATURAN BUAT SISTEM KUOTA (Anti-Abuse)
+    // 2. ATURAN BUAT KUOTA (Anti-Abuse)
     // ==========================================
-    
     match /quotas/{identifier} {
-      // Semua orang bisa ngecek sisa kuota mereka sendiri
+      // Bisa dibaca semua untuk cek sisa kuota
       allow read: if true;
       
-      // Aturan update kuota:
-      // Orang cuma bisa nambahin count (ngurangin kuota), 
-      // nggak bisa nge-reset sendiri dari client (kecuali ganti hari)
+      // Bisa ditulis dengan constraint: harus ada count dan date, dan count tidak negatif
       allow write: if 
-        // Data harus valid (ada count, date, dll)
         request.resource.data.keys().hasAll(['count', 'date']) &&
-        // Nggak bisa tiba-tiba nembak limit kuota dari client jadi 99999
         request.resource.data.count >= 0;
     }
-    
+
     // ==========================================
-    // 3. ATURAN BUAT API KEYS (API Provider)
+    // 3. ATURAN BUAT API KEYS
     // ==========================================
-    
     match /api_keys/{keyId} {
-      // Cuma ROOT yang bisa create, delete, dan list semua key
+      // ROOT bisa create/read/delete semua key
       allow read, write: if request.auth != null && request.auth.token.email == 'johsua092@gmail.com';
       
-      // Server Gateway (tanpa login) butuh akses untuk verifikasi (get) dan nambahin counter (update)
+      // Gateway (tanpa auth) butuh get + update untuk verifikasi key dan menambah usage
       allow get, update: if true;
     }
-    
   }
 }

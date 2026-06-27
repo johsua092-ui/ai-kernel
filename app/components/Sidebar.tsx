@@ -1,9 +1,31 @@
 'use client';
 
-import { User, signInWithPopup } from 'firebase/auth';
+import { User, signInWithPopup, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '../../lib/firebase';
 import { Conversation } from '../hooks/useChat';
 import { QuotaInfo } from '../../lib/quota';
+
+function ensurePersistence() {
+  if (typeof window !== 'undefined') {
+    setPersistence(auth, browserLocalPersistence).catch(() => {
+      // Fallback to default if browser blocks persistence
+    });
+  }
+}
+
+async function safeSignIn(provider: any) {
+  ensurePersistence();
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error: any) {
+    if (error.code === 'auth/popup-closed-by-user') return;
+    if (error.code === 'auth/popup-blocked') {
+      alert('⚠️ Pop-up blocked by browser. Please allow pop-ups for this site.');
+      return;
+    }
+    alert(`Login Error: ${error.message || error.code}`);
+  }
+}
 
 interface SidebarProps {
   user: User | null;
@@ -173,15 +195,7 @@ export default function Sidebar({
             <div className="flex flex-col gap-2">
               <div className="text-xs text-zinc-500 mb-1">Sign in to sync history across devices</div>
               <button
-                onClick={() => {
-                  signInWithPopup(auth, googleProvider).catch((error: any) => {
-                    if (error.code === 'auth/popup-blocked') {
-                      alert("⚠️ Pop-up blocked by browser. Please allow pop-ups for this site.");
-                    } else {
-                      alert("Google Login Error: " + error.message);
-                    }
-                  });
-                }}
+                onClick={() => safeSignIn(googleProvider)}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -193,15 +207,7 @@ export default function Sidebar({
                 Continue with Google
               </button>
               <button
-                onClick={() => {
-                  signInWithPopup(auth, githubProvider).catch((error: any) => {
-                    if (error.code === 'auth/popup-blocked') {
-                      alert("⚠️ Pop-up blocked by browser. Please allow pop-ups for this site.");
-                    } else {
-                      alert("GitHub Login Error: " + error.message);
-                    }
-                  });
-                }}
+                onClick={() => safeSignIn(githubProvider)}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
